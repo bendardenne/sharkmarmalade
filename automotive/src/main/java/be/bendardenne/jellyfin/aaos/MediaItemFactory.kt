@@ -3,6 +3,7 @@ package be.bendardenne.jellyfin.aaos
 import android.net.Uri
 import android.os.Bundle
 import androidx.annotation.OptIn
+import androidx.media3.common.HeartRating
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.util.UnstableApi
@@ -11,8 +12,10 @@ import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.extensions.universalAudioApi
 import org.jellyfin.sdk.api.operations.ImageApi
 import org.jellyfin.sdk.model.api.BaseItemDto
+import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.ImageType
 
+@OptIn(UnstableApi::class)
 class MediaItemFactory(private val jellyfinApi: ApiClient) {
 
     companion object {
@@ -39,16 +42,15 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
     }
 
     fun latestAlbums(): MediaItem {
-        return albumCategory(LATEST_ALBUMS, "Latest")
+        return albumCategory(LATEST_ALBUMS, "Latest", "schedule")
     }
 
     fun randomAlbums(): MediaItem {
-        return albumCategory(RANDOM_ALBUMS, "Random")
+        return albumCategory(RANDOM_ALBUMS, "Random", "casino")
     }
 
 
-    @OptIn(UnstableApi::class)
-    private fun albumCategory(id: String, label: String): MediaItem {
+    private fun albumCategory(id: String, label: String, icon: String): MediaItem {
         val extras = Bundle()
         extras.putInt(
             MediaConstants.EXTRAS_KEY_CONTENT_STYLE_PLAYABLE,
@@ -63,6 +65,7 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
             .setTitle(label)
             .setIsBrowsable(true)
             .setIsPlayable(false)
+            .setArtworkUri(Uri.parse("android.resource://be.bendardenne.jellyfin.aaos/drawable/$icon"))
             .setExtras(extras)
             .setMediaType(MediaMetadata.MEDIA_TYPE_FOLDER_ALBUMS)
             .build()
@@ -73,7 +76,6 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
             .build()
     }
 
-    @OptIn(UnstableApi::class)
     fun favourites(): MediaItem {
         val extras = Bundle()
         extras.putInt(
@@ -81,10 +83,12 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
             MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM
         )
 
+
         val metadata = MediaMetadata.Builder()
             .setTitle("Favourites")
             .setIsBrowsable(true)
             .setIsPlayable(false)
+            .setArtworkUri(Uri.parse("android.resource://be.bendardenne.jellyfin.aaos/drawable/star_filled"))
             .setExtras(extras)
             .setMediaType(MediaMetadata.MEDIA_TYPE_FOLDER_MIXED)
             .build()
@@ -95,9 +99,14 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
             .build()
     }
 
-    fun forAlbum(item: BaseItemDto): MediaItem {
+    private fun forAlbum(item: BaseItemDto, group: String? = null): MediaItem {
         val artUrl = ImageApi(jellyfinApi).getItemImageUrl(item.id, ImageType.PRIMARY)
         val localUrl = AlbumArtContentProvider.mapUri(Uri.parse(artUrl))
+
+        val extras = Bundle()
+        if (group != null) {
+            extras.putString(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_GROUP_TITLE, group)
+        }
 
         val metadata = MediaMetadata.Builder()
             .setTitle(item.name)
@@ -106,6 +115,7 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
             .setIsPlayable(true)
             .setArtworkUri(localUrl)
             .setMediaType(MediaMetadata.MEDIA_TYPE_ALBUM)
+            .setExtras(extras)
             .build()
 
         return MediaItem.Builder()
@@ -114,8 +124,7 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
             .build()
     }
 
-    @OptIn(UnstableApi::class)
-    fun forTrack(item: BaseItemDto): MediaItem {
+    private fun forTrack(item: BaseItemDto, group: String? = null): MediaItem {
         val artUrl = ImageApi(jellyfinApi).getItemImageUrl(item.id, ImageType.PRIMARY)
         val localUrl = AlbumArtContentProvider.mapUri(Uri.parse(artUrl))
 
@@ -126,8 +135,13 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
                 audioCodec = "mp3",
             )
 
-        // FIXME hack, due to Jellyfin API using UUID object which
+        // FIXME hack, due to Jellyfin API using UUID object
         audioStream = audioStream.replace("-", "")
+
+        val extras = Bundle()
+        if (group != null) {
+            extras.putString(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_GROUP_TITLE, group)
+        }
 
         val metadata = MediaMetadata.Builder()
             .setTitle(item.name)
@@ -135,8 +149,10 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
             .setIsBrowsable(false)
             .setIsPlayable(true)
             .setArtworkUri(localUrl)
+            .setUserRating(HeartRating(item.userData?.isFavorite ?: false))
             .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
             .setDurationMs(item.runTimeTicks?.div(10_000))
+            .setExtras(extras)
             .build()
 
         return MediaItem.Builder()
@@ -144,5 +160,15 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
             .setMediaMetadata(metadata)
             .setUri(audioStream)
             .build()
+    }
+
+
+    fun create(baseItemDto: BaseItemDto, group: String? = null): MediaItem {
+        return when (baseItemDto.type) {
+            BaseItemKind.MUSIC_ALBUM -> forAlbum(baseItemDto, group)
+            BaseItemKind.AUDIO -> forTrack(baseItemDto, group)
+//            BaseItemKind.MUSIC_ARTIST -> forAlbum(baseItemDto)
+            else -> MediaItem.Builder().build()
+        }
     }
 }

@@ -1,6 +1,8 @@
 package be.bendardenne.jellyfin.aaos
 
+import android.util.Log
 import androidx.media3.common.MediaItem
+import be.bendardenne.jellyfin.aaos.Constants.LOG_MARKER
 import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.FAVOURITES
 import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.LATEST_ALBUMS
 import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.RANDOM_ALBUMS
@@ -18,7 +20,6 @@ class JellyfinMediaTree(private val api: ApiClient) {
 
     // TODO make this a Cache ?
     private val mediaItems: MutableMap<String, MediaItem> = mutableMapOf()
-    private val children: MutableMap<String, List<String>> = mutableMapOf()
 
     init {
         mediaItems[ROOT_ID] = itemFactory.rootNode()
@@ -27,27 +28,27 @@ class JellyfinMediaTree(private val api: ApiClient) {
         mediaItems[FAVOURITES] = itemFactory.favourites()
     }
 
-    fun getItem(id: String): MediaItem {
-        // TODO Fix !!
+    suspend fun getItem(id: String): MediaItem {
+        if (mediaItems[id] == null) {
+            val response = api.itemsApi.getItems(UUIDConverter.hyphenate(id))
+            Log.i(LOG_MARKER, "${response.status}")
+
+            val baseItemDto = response.content.items[0]
+            Log.i(LOG_MARKER, "$baseItemDto")
+            mediaItems[id] = itemFactory.create(baseItemDto)
+        }
+
         return mediaItems[id]!!
     }
 
     suspend fun getChildren(id: String): List<MediaItem> {
-        // With random albums, don't store the children and recompute them each time.
-        if (id == RANDOM_ALBUMS) {
-            return resolveChildren(id).map(this::getItem)
-        }
-
-        if (!children.containsKey(id)) {
-            children[id] = resolveChildren(id)
-        }
-
-        return children[id]!!.map(this::getItem)
-    }
-
-    private suspend inline fun resolveChildren(id: String): List<String> {
         return when (id) {
-            ROOT_ID -> listOf(LATEST_ALBUMS, RANDOM_ALBUMS, FAVOURITES)
+            ROOT_ID -> listOf(
+                mediaItems[LATEST_ALBUMS]!!,
+                mediaItems[RANDOM_ALBUMS]!!,
+                mediaItems[FAVOURITES]!!
+            )
+
             LATEST_ALBUMS -> getLatestAlbums()
             RANDOM_ALBUMS -> getRandomAlbums()
             FAVOURITES -> getFavouriteTracks()
@@ -55,21 +56,19 @@ class JellyfinMediaTree(private val api: ApiClient) {
         }
     }
 
-    private suspend fun getLatestAlbums(): List<String> {
+    private suspend fun getLatestAlbums(): List<MediaItem> {
         val response = api.userLibraryApi.getLatestMedia(
             includeItemTypes = listOf(BaseItemKind.MUSIC_ALBUM)
         )
 
-        response.content.map(itemFactory::forAlbum).forEach {
-            mediaItems[it.mediaId] = it
-        }
-
         return response.content.map {
-            UUIDConverter.dehyphenate(it.id)
+            val item = itemFactory.create(it)
+            mediaItems[item.mediaId] = item
+            item
         }
     }
 
-    private suspend fun getRandomAlbums(): List<String> {
+    private suspend fun getRandomAlbums(): List<MediaItem> {
         val response = api.itemsApi.getItems(
             includeItemTypes = listOf(BaseItemKind.MUSIC_ALBUM),
             recursive = true,
@@ -79,16 +78,14 @@ class JellyfinMediaTree(private val api: ApiClient) {
             limit = 24
         )
 
-        response.content.items.map(itemFactory::forAlbum).forEach {
-            mediaItems[it.mediaId] = it
-        }
-
         return response.content.items.map {
-            UUIDConverter.dehyphenate(it.id)
+            val item = itemFactory.create(it)
+            mediaItems[item.mediaId] = item
+            item
         }
     }
 
-    private suspend fun getItemChildren(id: String): List<String> {
+    private suspend fun getItemChildren(id: String): List<MediaItem> {
         val response = api.itemsApi.getItems(
             sortBy = listOf(
                 ItemSortBy.PARENT_INDEX_NUMBER,
@@ -98,15 +95,14 @@ class JellyfinMediaTree(private val api: ApiClient) {
             parentId = UUIDConverter.hyphenate(id)
         )
 
-        // Assuming id points to an album. We could check the MediaItem to validate this
-        response.content.items.forEach {
-            mediaItems[UUIDConverter.dehyphenate(it.id)] = itemFactory.forTrack(it)
+        return response.content.items.map {
+            val item = itemFactory.create(it)
+            mediaItems[item.mediaId] = item
+            item
         }
-
-        return response.content.items.map { UUIDConverter.dehyphenate(it.id) }
     }
 
-    private suspend fun getFavouriteTracks(): List<String> {
+    private suspend fun getFavouriteTracks(): List<MediaItem> {
         // TODO when clicking a favourite track, we should load all of them in the playlist
         val response = api.itemsApi.getItems(
             recursive = true,
@@ -114,10 +110,41 @@ class JellyfinMediaTree(private val api: ApiClient) {
             includeItemTypes = listOf(BaseItemKind.AUDIO)
         )
 
-        response.content.items.map(itemFactory::forTrack).forEach {
-            mediaItems[it.mediaId] = it
+        return response.content.items.map {
+            val item = itemFactory.create(it)
+            mediaItems[item.mediaId] = item
+            item
         }
+    }
 
-        return response.content.items.map { UUIDConverter.dehyphenate(it.id) }
+    suspend fun search(query: String): List<MediaItem> {
+
+        val items = mutableListOf<MediaItem>()
+
+        var response = api.itemsApi.getItems(
+            recursive = true,
+            searchTerm = query,
+            includeItemTypes = listOf(BaseItemKind.MUSIC_ALBUM)
+        )
+
+        items.addAll(response.content.items.map {
+            val item = itemFactory.create(it, "albums")
+            mediaItems[item.mediaId] = item
+            item
+        })
+
+        response = api.itemsApi.getItems(
+            recursive = true,
+            searchTerm = query,
+            includeItemTypes = listOf(BaseItemKind.AUDIO)
+        )
+
+        items.addAll(response.content.items.map {
+            val item = itemFactory.create(it, "tracks")
+            mediaItems[item.mediaId] = item
+            item
+        })
+
+        return items
     }
 }

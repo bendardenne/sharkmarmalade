@@ -1,11 +1,8 @@
 package be.bendardenne.jellyfin.aaos
 
 import android.accounts.AccountManager
-import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
-import androidx.media3.common.MediaMetadata
-import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
@@ -25,7 +22,6 @@ class JellyfinMusicService : MediaLibraryService() {
     @Inject
     lateinit var jellyfin: Jellyfin
 
-    private val headers: MutableMap<String, String> = mutableMapOf()
     private lateinit var accountManager: JellyfinAccountManager
     private lateinit var jellyfinApi: ApiClient
     private lateinit var mediaSourceFactory: DefaultMediaSourceFactory
@@ -36,34 +32,17 @@ class JellyfinMusicService : MediaLibraryService() {
 
         accountManager = JellyfinAccountManager(AccountManager.get(applicationContext))
         jellyfinApi = jellyfin.createApi()
-
         mediaSourceFactory = DefaultMediaSourceFactory(this)
+
         val player = ExoPlayer.Builder(this)
             .setAudioAttributes(AudioAttributes.DEFAULT, true)
             .setMediaSourceFactory(mediaSourceFactory)
-            .build().apply {
-                addListener(object : Player.Listener {
-                    override fun onEvents(player: Player, events: Player.Events) {
-                        Log.i("onEvents", events.toString())
-                        super.onEvents(player, events)
-                    }
-
-                    override fun onPlaybackStateChanged(playbackState: Int) {
-                        Log.i("onPlaybackStateChanged", playbackState.toString())
-                        super.onPlaybackStateChanged(playbackState)
-                    }
-
-                    override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) {
-                        Log.i("onMediaMetadataChanged", playbackState.toString())
-                    }
-                })
-            }
-
+            .build()
 
         val callback = JellyfinMediaLibrarySessionCallback(this, accountManager, jellyfinApi)
-        mediaLibrarySession = MediaLibrarySession.Builder(
-            this, player, callback
-        ).build()
+
+        mediaLibrarySession = MediaLibrarySession.Builder(this, player, callback)
+            .build()
 
         if (accountManager.isAuthenticated) {
             onLogin()
@@ -77,7 +56,6 @@ class JellyfinMusicService : MediaLibraryService() {
     override fun onDestroy() {
         mediaLibrarySession.release()
         mediaLibrarySession.player.release()
-        // TODO jellyfin API?
         super.onDestroy()
     }
 
@@ -87,16 +65,18 @@ class JellyfinMusicService : MediaLibraryService() {
             accessToken = accountManager.token
         )
 
-        headers["Authorization"] = "MediaBrowser Client=\"${jellyfinApi.clientInfo.name}\", " +
-                "Device=\"${jellyfinApi.deviceInfo.name}\", " +
-                "DeviceId=\"${jellyfinApi.deviceInfo.id}\", " +
-                "Version=\"${jellyfinApi.clientInfo.version}\", " +
-                "Token=\"${jellyfinApi.accessToken}\""
+        val headers = mapOf(
+            "Authorization" to "MediaBrowser Client=\"${jellyfinApi.clientInfo.name}\", " +
+                    "Device=\"${jellyfinApi.deviceInfo.name}\", " +
+                    "DeviceId=\"${jellyfinApi.deviceInfo.id}\", " +
+                    "Version=\"${jellyfinApi.clientInfo.version}\", " +
+                    "Token=\"${jellyfinApi.accessToken}\""
+        )
 
+        val authedFactory = DefaultHttpDataSource.Factory().setDefaultRequestProperties(headers)
+        mediaSourceFactory.setDataSourceFactory(authedFactory)
 
-        val authenticatedSourceFactory =
-            DefaultHttpDataSource.Factory().setDefaultRequestProperties(headers)
-        mediaSourceFactory.setDataSourceFactory(authenticatedSourceFactory)
+        // Trigger a refresh upon login.
         mediaLibrarySession.notifyChildrenChanged(ROOT_ID, 4, null)
     }
 }

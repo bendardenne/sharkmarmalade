@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">Shark Marmalade</string>
+    <string name="server_textfield_hint">https://myjellyfin.server.com:8096</string>
+    <string name="server_button_label">Connect to server</string>
+    <string name="server_textfield_error">Server URL cannot be empty</string>
+    <string name="username_textfield_hint">username</string>
+    <string name="password_textfield_hint">password</string>
+    <string name="login_button_label">Log In</string>
+    <string name="username_textfield_error">Username cannot be empty</string>
+    <string name="server_unreachable">Could not reach server</string>
+    <string name="login_unsuccessful">Failed to login</string>
+</resources>

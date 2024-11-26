@@ -1,5 +1,6 @@
 package be.bendardenne.jellyfin.aaos
 
+import android.content.Context
 import android.util.Log
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata.MEDIA_TYPE_ARTIST
@@ -16,7 +17,7 @@ import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.ItemFilter
 import org.jellyfin.sdk.model.api.ItemSortBy
 
-class JellyfinMediaTree(private val api: ApiClient) {
+class JellyfinMediaTree(private val context: Context, private val api: ApiClient) {
 
     private val itemFactory = MediaItemFactory(api)
 
@@ -144,14 +145,13 @@ class JellyfinMediaTree(private val api: ApiClient) {
     suspend fun search(query: String): List<MediaItem> {
         val items = mutableListOf<MediaItem>()
 
-        // TODO I18n
         var response = api.artistsApi.getAlbumArtists(
             searchTerm = query,
             limit = 10,
         )
 
         items.addAll(response.content.items.map {
-            val item = itemFactory.create(it, "Artists")
+            val item = itemFactory.create(it, context.getString(R.string.artists))
             mediaItems[item.mediaId] = item
             item
         })
@@ -164,7 +164,7 @@ class JellyfinMediaTree(private val api: ApiClient) {
         )
 
         items.addAll(response.content.items.map {
-            val item = itemFactory.create(it, "Albums")
+            val item = itemFactory.create(it, context.getString(R.string.albums))
             mediaItems[item.mediaId] = item
             item
         })
@@ -177,7 +177,7 @@ class JellyfinMediaTree(private val api: ApiClient) {
         )
 
         items.addAll(response.content.items.map {
-            val item = itemFactory.create(it, "Tracks")
+            val item = itemFactory.create(it, context.getString(R.string.tracks))
             mediaItems[item.mediaId] = item
             item
         })

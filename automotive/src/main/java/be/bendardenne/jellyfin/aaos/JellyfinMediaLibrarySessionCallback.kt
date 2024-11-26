@@ -42,7 +42,7 @@ class JellyfinMediaLibrarySessionCallback(
         const val LOGIN = "be.bendardenne.jellyfin.aaos.COMMAND.LOGIN"
     }
 
-    private val tree = JellyfinMediaTree(jellyfinApi)
+    private val tree = JellyfinMediaTree(service, jellyfinApi)
 
     override fun onConnect(
         session: MediaSession,
@@ -81,7 +81,14 @@ class JellyfinMediaLibrarySessionCallback(
     ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
         Log.i(LOG_MARKER, "onGetChildren $parentId")
         if (!accountManager.isAuthenticated) {
-            return Futures.immediateFuture(needsAuth())
+            return Futures.immediateFuture( LibraryResult.ofError(
+                SessionError(
+                    SessionError.ERROR_SESSION_AUTHENTICATION_EXPIRED,
+                    service.getString(R.string.sign_in_to_your_jellyfin_server)
+                ),
+                MediaLibraryService.LibraryParams.Builder()
+                    .setExtras(authenticationExtras()).build()
+            ))
         }
 
         return SuspendToFutureAdapter.launchFuture {
@@ -89,22 +96,11 @@ class JellyfinMediaLibrarySessionCallback(
         }
     }
 
-    private fun <T> needsAuth(): LibraryResult<T & Any> =
-        LibraryResult.ofError(
-            SessionError(
-                SessionError.ERROR_SESSION_AUTHENTICATION_EXPIRED,
-                "Sign in to your Jellyfin server"
-            ),
-            MediaLibraryService.LibraryParams.Builder()
-                .setExtras(authenticationExtras()).build()
-        )
-
     private fun authenticationExtras(): Bundle {
         return Bundle().also {
-            // TODO i18n
             it.putString(
                 EXTRAS_KEY_ERROR_RESOLUTION_ACTION_LABEL_COMPAT,
-                "Sign in to your Jellyfin server"
+                service.getString(R.string.sign_in_to_your_jellyfin_server)
             )
 
             val signInIntent = Intent(service, SignInActivity::class.java)
@@ -182,7 +178,6 @@ class JellyfinMediaLibrarySessionCallback(
         return playlist
     }
 
-    // TODO
     override fun onSearch(
         session: MediaLibraryService.MediaLibrarySession,
         browser: MediaSession.ControllerInfo,

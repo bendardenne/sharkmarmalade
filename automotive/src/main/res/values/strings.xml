@@ -9,4 +9,8 @@
     <string name="username_textfield_error">Username cannot be empty</string>
     <string name="server_unreachable">Could not reach server</string>
     <string name="login_unsuccessful">Failed to login</string>
+    <string name="artists">Artists</string>
+    <string name="tracks">Tracks</string>
+    <string name="albums">Albums</string>
+    <string name="sign_in_to_your_jellyfin_server">Sign in to your Jellyfin server</string>
 </resources>

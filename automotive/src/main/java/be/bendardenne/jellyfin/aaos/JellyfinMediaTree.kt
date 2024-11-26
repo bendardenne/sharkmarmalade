@@ -2,12 +2,14 @@ package be.bendardenne.jellyfin.aaos
 
 import android.util.Log
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata.MEDIA_TYPE_ARTIST
 import be.bendardenne.jellyfin.aaos.Constants.LOG_MARKER
 import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.FAVOURITES
 import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.LATEST_ALBUMS
 import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.RANDOM_ALBUMS
 import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.ROOT_ID
 import org.jellyfin.sdk.api.client.ApiClient
+import org.jellyfin.sdk.api.client.extensions.artistsApi
 import org.jellyfin.sdk.api.client.extensions.itemsApi
 import org.jellyfin.sdk.api.client.extensions.userLibraryApi
 import org.jellyfin.sdk.model.api.BaseItemKind
@@ -86,6 +88,10 @@ class JellyfinMediaTree(private val api: ApiClient) {
     }
 
     private suspend fun getItemChildren(id: String): List<MediaItem> {
+        if (mediaItems[id]?.mediaMetadata?.mediaType == MEDIA_TYPE_ARTIST) {
+            return getArtistAlbums(id)
+        }
+
         val response = api.itemsApi.getItems(
             sortBy = listOf(
                 ItemSortBy.PARENT_INDEX_NUMBER,
@@ -102,8 +108,26 @@ class JellyfinMediaTree(private val api: ApiClient) {
         }
     }
 
+    private suspend fun getArtistAlbums(id: String): List<MediaItem> {
+        val response = api.itemsApi.getItems(
+            sortBy = listOf(
+                ItemSortBy.PARENT_INDEX_NUMBER,
+                ItemSortBy.INDEX_NUMBER,
+                ItemSortBy.SORT_NAME
+            ),
+            recursive = true,
+            includeItemTypes = listOf(BaseItemKind.MUSIC_ALBUM),
+            albumArtistIds = listOf(UUIDConverter.hyphenate(id)),
+        )
+
+        return response.content.items.map {
+            val item = itemFactory.create(it)
+            mediaItems[item.mediaId] = item
+            item
+        }
+    }
+
     private suspend fun getFavouriteTracks(): List<MediaItem> {
-        // TODO when clicking a favourite track, we should load all of them in the playlist
         val response = api.itemsApi.getItems(
             recursive = true,
             filters = listOf(ItemFilter.IS_FAVORITE),
@@ -118,17 +142,16 @@ class JellyfinMediaTree(private val api: ApiClient) {
     }
 
     suspend fun search(query: String): List<MediaItem> {
-
         val items = mutableListOf<MediaItem>()
 
-        var response = api.itemsApi.getItems(
-            recursive = true,
+        // TODO I18n
+        var response = api.artistsApi.getAlbumArtists(
             searchTerm = query,
-            includeItemTypes = listOf(BaseItemKind.MUSIC_ALBUM)
+            limit = 10,
         )
 
         items.addAll(response.content.items.map {
-            val item = itemFactory.create(it, "albums")
+            val item = itemFactory.create(it, "Artists")
             mediaItems[item.mediaId] = item
             item
         })
@@ -136,11 +159,25 @@ class JellyfinMediaTree(private val api: ApiClient) {
         response = api.itemsApi.getItems(
             recursive = true,
             searchTerm = query,
-            includeItemTypes = listOf(BaseItemKind.AUDIO)
+            includeItemTypes = listOf(BaseItemKind.MUSIC_ALBUM),
+            limit = 10
         )
 
         items.addAll(response.content.items.map {
-            val item = itemFactory.create(it, "tracks")
+            val item = itemFactory.create(it, "Albums")
+            mediaItems[item.mediaId] = item
+            item
+        })
+
+        response = api.itemsApi.getItems(
+            recursive = true,
+            searchTerm = query,
+            includeItemTypes = listOf(BaseItemKind.AUDIO),
+            limit = 20
+        )
+
+        items.addAll(response.content.items.map {
+            val item = itemFactory.create(it, "Tracks")
             mediaItems[item.mediaId] = item
             item
         })

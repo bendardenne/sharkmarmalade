@@ -6,19 +6,19 @@ import android.content.ContentValues
 import android.database.Cursor
 import android.net.Uri
 import android.os.ParcelFileDescriptor
-import com.bumptech.glide.Glide
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okio.buffer
+import okio.sink
 import java.io.File
 import java.io.FileNotFoundException
-import java.util.concurrent.TimeUnit
-
-const val DOWNLOAD_TIMEOUT_SECONDS = 30L
 
 /**
- * ContentProvider for album arts. Adapted from:
- *
- * https://github.com/android/uamp/blob/99e44c1c5106218c62eff552b64bbc12f1883a22/common/src/main/java/com/example/android/uamp/media/library/AlbumArtContentProvider.kt
+ * ContentProvider for album arts.
  */
 class AlbumArtContentProvider : ContentProvider() {
+
+    private val client = OkHttpClient()
 
     companion object {
         private val uriMap = mutableMapOf<Uri, Uri>()
@@ -43,16 +43,22 @@ class AlbumArtContentProvider : ContentProvider() {
         val file = File(context.cacheDir, uri.path)
 
         if (!file.exists()) {
-            // Use Glide to download the album art.
-            val cacheFile = Glide.with(context)
-                .downloadOnly()
-                .load(remoteUri)
-                .thumbnail()
-                .submit()
-                .get(DOWNLOAD_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            val request: Request = Request.Builder()
+                .url(remoteUri.toString())
+                .build()
 
-            // Rename the file Glide created to match our own scheme.
-            cacheFile.renameTo(file)
+            client.newCall(request).execute().use { response ->
+                {
+                    if (response.body != null && response.code == 200) {
+                        val source = response.body!!.source()
+                        source.request(Long.MAX_VALUE)
+
+                        val sink = file.sink().buffer()
+                        sink.writeAll(source)
+                        sink.close()
+                    }
+                }
+            }
         }
 
         return ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)

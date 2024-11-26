@@ -23,8 +23,6 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
         const val LATEST_ALBUMS = "LATEST_ALBUMS_ID"
         const val RANDOM_ALBUMS = "RANDOM_ALBUMS_ID"
         const val FAVOURITES = "FAVOURITES_ID"
-
-        const val CONTEXT_KEY = "CONTEXT_KEY"
     }
 
     fun rootNode(): MediaItem {
@@ -99,6 +97,40 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
             .build()
     }
 
+    private fun forArtist(item: BaseItemDto, group: String? = null): MediaItem {
+        val artUrl = ImageApi(jellyfinApi).getItemImageUrl(item.id, ImageType.PRIMARY)
+        val localUrl = AlbumArtContentProvider.mapUri(Uri.parse(artUrl))
+
+        val extras = Bundle()
+        if (group != null) {
+            extras.putString(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_GROUP_TITLE, group)
+        }
+
+        extras.putInt(
+            MediaConstants.EXTRAS_KEY_CONTENT_STYLE_PLAYABLE,
+            MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM
+        )
+        extras.putInt(
+            MediaConstants.EXTRAS_KEY_CONTENT_STYLE_BROWSABLE,
+            MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM
+        )
+
+        val metadata = MediaMetadata.Builder()
+            .setTitle(item.name)
+            .setAlbumArtist(item.albumArtist)
+            .setIsBrowsable(true)
+            .setIsPlayable(false)
+            .setArtworkUri(localUrl)
+            .setMediaType(MediaMetadata.MEDIA_TYPE_ARTIST)
+            .setExtras(extras)
+            .build()
+
+        return MediaItem.Builder()
+            .setMediaId(UUIDConverter.dehyphenate(item.id))
+            .setMediaMetadata(metadata)
+            .build()
+    }
+
     private fun forAlbum(item: BaseItemDto, group: String? = null): MediaItem {
         val artUrl = ImageApi(jellyfinApi).getItemImageUrl(item.id, ImageType.PRIMARY)
         val localUrl = AlbumArtContentProvider.mapUri(Uri.parse(artUrl))
@@ -131,8 +163,8 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
         var audioStream =
             jellyfinApi.universalAudioApi.getUniversalAudioStreamUrl(
                 item.id,
-                container = listOf("mp3"),      // TODO flac ?
-                audioCodec = "mp3",
+                container = listOf("flac,mp3"),
+                audioCodec = "flac,mp3",
             )
 
         // FIXME hack, due to Jellyfin API using UUID object
@@ -165,10 +197,10 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
 
     fun create(baseItemDto: BaseItemDto, group: String? = null): MediaItem {
         return when (baseItemDto.type) {
+            BaseItemKind.MUSIC_ARTIST -> forArtist(baseItemDto, group)
             BaseItemKind.MUSIC_ALBUM -> forAlbum(baseItemDto, group)
             BaseItemKind.AUDIO -> forTrack(baseItemDto, group)
-//            BaseItemKind.MUSIC_ARTIST -> forAlbum(baseItemDto)
-            else -> MediaItem.Builder().build()
+            else -> throw UnsupportedOperationException("Can't create mediaItem for ${baseItemDto.type}")
         }
     }
 }

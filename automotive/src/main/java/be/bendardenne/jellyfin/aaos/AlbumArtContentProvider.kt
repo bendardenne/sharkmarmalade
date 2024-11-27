@@ -6,12 +6,15 @@ import android.content.ContentValues
 import android.database.Cursor
 import android.net.Uri
 import android.os.ParcelFileDescriptor
+import android.util.Log
+import be.bendardenne.jellyfin.aaos.Constants.LOG_MARKER
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okio.buffer
 import okio.sink
 import java.io.File
 import java.io.FileNotFoundException
+
 
 /**
  * ContentProvider for album arts.
@@ -43,22 +46,29 @@ class AlbumArtContentProvider : ContentProvider() {
         val file = File(context.cacheDir, uri.path)
 
         if (!file.exists()) {
+            val tmpFile = File.createTempFile("sharkmarmalade-albumart", ".png", context.cacheDir)
+
             val request: Request = Request.Builder()
                 .url(remoteUri.toString())
                 .build()
 
-            client.newCall(request).execute().use { response ->
-                {
-                    if (response.body != null && response.code == 200) {
-                        val source = response.body!!.source()
-                        source.request(Long.MAX_VALUE)
 
-                        val sink = file.sink().buffer()
-                        sink.writeAll(source)
-                        sink.close()
-                    }
+            // TODO  Often, the same URL will be requested multiple times, in several threads.
+            // We could perform only one request and return the same file in each thread.
+            client.newCall(request).execute().use {
+                if (it.body != null && it.code == 200) {
+                    Log.i(LOG_MARKER, "Downloaded $remoteUri")
+                    val source = it.body!!.source()
+                    source.request(Long.MAX_VALUE)
+
+                    val sink = tmpFile.sink().buffer()
+                    sink.writeAll(source)
+                    sink.flush()
+                    sink.close()
                 }
             }
+
+            tmpFile.renameTo(file)
         }
 
         return ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)

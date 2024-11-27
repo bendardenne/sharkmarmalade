@@ -23,6 +23,7 @@ import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionError
 import androidx.media3.session.SessionResult
 import be.bendardenne.jellyfin.aaos.Constants.LOG_MARKER
+import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.PARENT_KEY
 import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.ROOT_ID
 import be.bendardenne.jellyfin.aaos.signin.SignInActivity
 import com.google.common.collect.ImmutableList
@@ -66,9 +67,7 @@ class JellyfinMediaLibrarySessionCallback(
         params: MediaLibraryService.LibraryParams?
     ): ListenableFuture<LibraryResult<MediaItem>> {
         Log.i(LOG_MARKER, "onGetRoot")
-        return SuspendToFutureAdapter.launchFuture {
-            LibraryResult.ofItem(tree.getItem(ROOT_ID), params)
-        }
+        return Futures.immediateFuture(LibraryResult.ofItem(tree.getItem(ROOT_ID), params))
     }
 
     override fun onGetChildren(
@@ -81,14 +80,16 @@ class JellyfinMediaLibrarySessionCallback(
     ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
         Log.i(LOG_MARKER, "onGetChildren $parentId")
         if (!accountManager.isAuthenticated) {
-            return Futures.immediateFuture( LibraryResult.ofError(
-                SessionError(
-                    SessionError.ERROR_SESSION_AUTHENTICATION_EXPIRED,
-                    service.getString(R.string.sign_in_to_your_jellyfin_server)
-                ),
-                MediaLibraryService.LibraryParams.Builder()
-                    .setExtras(authenticationExtras()).build()
-            ))
+            return Futures.immediateFuture(
+                LibraryResult.ofError(
+                    SessionError(
+                        SessionError.ERROR_SESSION_AUTHENTICATION_EXPIRED,
+                        service.getString(R.string.sign_in_to_your_jellyfin_server)
+                    ),
+                    MediaLibraryService.LibraryParams.Builder()
+                        .setExtras(authenticationExtras()).build()
+                )
+            )
         }
 
         return SuspendToFutureAdapter.launchFuture {
@@ -124,12 +125,7 @@ class JellyfinMediaLibrarySessionCallback(
         mediaId: String,
     ): ListenableFuture<LibraryResult<MediaItem>> {
         Log.i(LOG_MARKER, "onGetItem $mediaId")
-        return SuspendToFutureAdapter.launchFuture {
-            LibraryResult.ofItem(
-                tree.getItem(mediaId),
-                null
-            )
-        }
+        return Futures.immediateFuture(LibraryResult.ofItem(tree.getItem(mediaId), null))
     }
 
     override fun onAddMediaItems(
@@ -149,6 +145,18 @@ class JellyfinMediaLibrarySessionCallback(
         startPositionMs: Long,
     ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
         Log.i(LOG_MARKER, "onSetMediaItems $mediaItems")
+        if (isSingleItemWithParent(mediaItems)) {
+            return SuspendToFutureAdapter.launchFuture {
+                val singleItem = mediaItems[0]
+                val resolvedItems = expandSingleItem(singleItem)
+                MediaSession.MediaItemsWithStartPosition(
+                    resolvedItems,
+                    resolvedItems.indexOfFirst { it.mediaId == singleItem.mediaId },
+                    startPositionMs
+                )
+            }
+        }
+
         return SuspendToFutureAdapter.launchFuture {
             MediaSession.MediaItemsWithStartPosition(
                 resolveMediaItems(mediaItems),
@@ -156,6 +164,17 @@ class JellyfinMediaLibrarySessionCallback(
                 startPositionMs
             )
         }
+    }
+
+    private fun isSingleItemWithParent(mediaItems: List<MediaItem>): Boolean {
+        return mediaItems.size == 1 &&
+                tree.getItem(mediaItems[0].mediaId).mediaMetadata.extras?.containsKey(PARENT_KEY) == true
+    }
+
+    private suspend fun expandSingleItem(item: MediaItem): List<MediaItem> {
+        // This could load a lot of tracks if the parent has many children.
+        val parentId = tree.getItem(item.mediaId).mediaMetadata.extras?.getString(PARENT_KEY)!!
+        return resolveMediaItems(tree.getChildren(parentId))
     }
 
     private suspend fun resolveMediaItems(mediaItems: List<MediaItem>): List<MediaItem> {

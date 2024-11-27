@@ -23,6 +23,7 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
         const val LATEST_ALBUMS = "LATEST_ALBUMS_ID"
         const val RANDOM_ALBUMS = "RANDOM_ALBUMS_ID"
         const val FAVOURITES = "FAVOURITES_ID"
+        const val PARENT_KEY = "PARENT_KEY"
     }
 
     fun rootNode(): MediaItem {
@@ -131,7 +132,7 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
             .build()
     }
 
-    private fun forAlbum(item: BaseItemDto, group: String? = null): MediaItem {
+    private fun forAlbum(item: BaseItemDto, group: String? = null, parent: String? = null): MediaItem {
         val artUrl = ImageApi(jellyfinApi).getItemImageUrl(item.id, ImageType.PRIMARY)
         val localUrl = AlbumArtContentProvider.mapUri(Uri.parse(artUrl))
 
@@ -139,6 +140,9 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
         if (group != null) {
             extras.putString(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_GROUP_TITLE, group)
         }
+
+        // FIXME doesn't work right now
+        extras.putString(PARENT_KEY, parent)
 
         val metadata = MediaMetadata.Builder()
             .setTitle(item.name)
@@ -156,7 +160,11 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
             .build()
     }
 
-    private fun forTrack(item: BaseItemDto, group: String? = null): MediaItem {
+    private fun forTrack(
+        item: BaseItemDto,
+        group: String? = null,
+        parent: String? = null
+    ): MediaItem {
         val artUrl = ImageApi(jellyfinApi).getItemImageUrl(item.id, ImageType.PRIMARY)
         val localUrl = AlbumArtContentProvider.mapUri(Uri.parse(artUrl))
 
@@ -174,6 +182,8 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
         if (group != null) {
             extras.putString(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_GROUP_TITLE, group)
         }
+
+        extras.putString(PARENT_KEY, parent)
 
         val metadata = MediaMetadata.Builder()
             .setTitle(item.name)
@@ -195,11 +205,15 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
     }
 
 
-    fun create(baseItemDto: BaseItemDto, group: String? = null): MediaItem {
+    fun create(
+        baseItemDto: BaseItemDto,
+        group: String? = null,
+        parent: String? = null
+    ): MediaItem {
         return when (baseItemDto.type) {
             BaseItemKind.MUSIC_ARTIST -> forArtist(baseItemDto, group)
-            BaseItemKind.MUSIC_ALBUM -> forAlbum(baseItemDto, group)
-            BaseItemKind.AUDIO -> forTrack(baseItemDto, group)
+            BaseItemKind.MUSIC_ALBUM -> forAlbum(baseItemDto, group, parent)
+            BaseItemKind.AUDIO -> forTrack(baseItemDto, group, parent)
             else -> throw UnsupportedOperationException("Can't create mediaItem for ${baseItemDto.type}")
         }
     }

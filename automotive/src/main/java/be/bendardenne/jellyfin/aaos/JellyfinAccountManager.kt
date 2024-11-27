@@ -13,7 +13,7 @@ class JellyfinAccountManager(private val accountManager: AccountManager) {
         const val USERDATA_SERVER_KEY = "$ACCOUNT_TYPE.server"
     }
 
-    val account: Account?
+    private val account: Account?
         get() = accountManager.getAccountsByType(ACCOUNT_TYPE).firstOrNull()
 
     val server: String?

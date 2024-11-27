@@ -1,10 +1,8 @@
 package be.bendardenne.jellyfin.aaos
 
 import android.content.Context
-import android.util.Log
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata.MEDIA_TYPE_ARTIST
-import be.bendardenne.jellyfin.aaos.Constants.LOG_MARKER
 import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.FAVOURITES
 import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.LATEST_ALBUMS
 import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.RANDOM_ALBUMS
@@ -31,16 +29,11 @@ class JellyfinMediaTree(private val context: Context, private val api: ApiClient
         mediaItems[FAVOURITES] = itemFactory.favourites()
     }
 
-    suspend fun getItem(id: String): MediaItem {
-        if (mediaItems[id] == null) {
-            val response = api.itemsApi.getItems(UUIDConverter.hyphenate(id))
-            Log.i(LOG_MARKER, "${response.status}")
-
-            val baseItemDto = response.content.items[0]
-            Log.i(LOG_MARKER, "$baseItemDto")
-            mediaItems[id] = itemFactory.create(baseItemDto)
-        }
-
+    fun getItem(id: String): MediaItem {
+        // It shouldn't be possible to request an item, unless it was previously obtained via
+        // getChildren or one of the other methods for toplevel entries.
+        // Thus, it should never be possible to request an ID which is not in the map.
+        // If needed, we could query the api for the ID when missing
         return mediaItems[id]!!
     }
 
@@ -103,7 +96,7 @@ class JellyfinMediaTree(private val context: Context, private val api: ApiClient
         )
 
         return response.content.items.map {
-            val item = itemFactory.create(it)
+            val item = itemFactory.create(it, parent = id)
             mediaItems[item.mediaId] = item
             item
         }
@@ -136,7 +129,7 @@ class JellyfinMediaTree(private val context: Context, private val api: ApiClient
         )
 
         return response.content.items.map {
-            val item = itemFactory.create(it)
+            val item = itemFactory.create(it, parent = FAVOURITES)
             mediaItems[item.mediaId] = item
             item
         }

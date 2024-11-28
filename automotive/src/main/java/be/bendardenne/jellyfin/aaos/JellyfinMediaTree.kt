@@ -29,11 +29,15 @@ class JellyfinMediaTree(private val context: Context, private val api: ApiClient
         mediaItems[FAVOURITES] = itemFactory.favourites()
     }
 
-    fun getItem(id: String): MediaItem {
-        // It shouldn't be possible to request an item, unless it was previously obtained via
-        // getChildren or one of the other methods for toplevel entries.
-        // Thus, it should never be possible to request an ID which is not in the map.
-        // If needed, we could query the api for the ID when missing
+    suspend fun getItem(id: String): MediaItem {
+        // Ideally, this never happens because it shouldn't be possible to request an item by ID
+        // without it having been fetched and cached by one of the getChildren delegates.
+        if (mediaItems[id] == null) {
+            val response = api.itemsApi.getItems(ids = listOf(UUIDConverter.hyphenate(id)))
+            val baseItemDto = response.content.items[0]
+            mediaItems[id] = itemFactory.create(baseItemDto)
+        }
+
         return mediaItems[id]!!
     }
 
@@ -54,6 +58,7 @@ class JellyfinMediaTree(private val context: Context, private val api: ApiClient
 
     private suspend fun getLatestAlbums(): List<MediaItem> {
         val response = api.userLibraryApi.getLatestMedia(
+            limit = 21,
             includeItemTypes = listOf(BaseItemKind.MUSIC_ALBUM)
         )
 

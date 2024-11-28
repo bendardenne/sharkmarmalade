@@ -67,7 +67,12 @@ class JellyfinMediaLibrarySessionCallback(
         params: MediaLibraryService.LibraryParams?
     ): ListenableFuture<LibraryResult<MediaItem>> {
         Log.i(LOG_MARKER, "onGetRoot")
-        return Futures.immediateFuture(LibraryResult.ofItem(tree.getItem(ROOT_ID), params))
+        return SuspendToFutureAdapter.launchFuture {
+            LibraryResult.ofItem(
+                tree.getItem(ROOT_ID),
+                params
+            )
+        }
     }
 
     override fun onGetChildren(
@@ -125,7 +130,12 @@ class JellyfinMediaLibrarySessionCallback(
         mediaId: String,
     ): ListenableFuture<LibraryResult<MediaItem>> {
         Log.i(LOG_MARKER, "onGetItem $mediaId")
-        return Futures.immediateFuture(LibraryResult.ofItem(tree.getItem(mediaId), null))
+        return SuspendToFutureAdapter.launchFuture {
+            LibraryResult.ofItem(
+                tree.getItem(mediaId),
+                null
+            )
+        }
     }
 
     override fun onAddMediaItems(
@@ -145,19 +155,17 @@ class JellyfinMediaLibrarySessionCallback(
         startPositionMs: Long,
     ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
         Log.i(LOG_MARKER, "onSetMediaItems $mediaItems")
-        if (isSingleItemWithParent(mediaItems)) {
-            return SuspendToFutureAdapter.launchFuture {
+        return SuspendToFutureAdapter.launchFuture {
+            if (isSingleItemWithParent(mediaItems)) {
                 val singleItem = mediaItems[0]
                 val resolvedItems = expandSingleItem(singleItem)
-                MediaSession.MediaItemsWithStartPosition(
+                return@launchFuture MediaSession.MediaItemsWithStartPosition(
                     resolvedItems,
                     resolvedItems.indexOfFirst { it.mediaId == singleItem.mediaId },
                     startPositionMs
                 )
             }
-        }
 
-        return SuspendToFutureAdapter.launchFuture {
             MediaSession.MediaItemsWithStartPosition(
                 resolveMediaItems(mediaItems),
                 startIndex,
@@ -166,7 +174,7 @@ class JellyfinMediaLibrarySessionCallback(
         }
     }
 
-    private fun isSingleItemWithParent(mediaItems: List<MediaItem>): Boolean {
+    private suspend fun isSingleItemWithParent(mediaItems: List<MediaItem>): Boolean {
         return mediaItems.size == 1 &&
                 tree.getItem(mediaItems[0].mediaId).mediaMetadata.extras?.containsKey(PARENT_KEY) == true
     }

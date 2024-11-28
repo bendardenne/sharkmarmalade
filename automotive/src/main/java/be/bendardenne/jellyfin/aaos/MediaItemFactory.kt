@@ -141,9 +141,6 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
             extras.putString(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_GROUP_TITLE, group)
         }
 
-        // FIXME doesn't work right now
-        extras.putString(PARENT_KEY, parent)
-
         val metadata = MediaMetadata.Builder()
             .setTitle(item.name)
             .setAlbumArtist(item.albumArtist)

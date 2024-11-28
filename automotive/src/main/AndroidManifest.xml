@@ -36,6 +36,10 @@
         android:theme="@style/SharkMarmalade"
         tools:remove="android:appComponentFactory">
 
+        <meta-data
+            android:name="androidx.car.app.TintableAttributionIcon"
+            android:resource="@drawable/app_logo" />
+
         <activity
             android:name=".signin.SignInActivity"
             android:exported="true">
@@ -47,6 +51,7 @@
         <service
             android:name=".JellyfinMusicService"
             android:exported="true"
+            android:icon="@mipmap/ic_launcher"
             android:foregroundServiceType="mediaPlayback">
             <intent-filter>
                 <action android:name="androidx.media3.session.MediaLibraryService" />

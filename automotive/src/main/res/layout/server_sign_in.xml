@@ -8,16 +8,17 @@
     android:orientation="vertical">
 
     <ImageView
+        android:src="@drawable/app_logo"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:layout_margin="50dp"
-        android:src="@drawable/app_logo"
         app:layout_constraintBottom_toTopOf="@+id/server_uri"
         app:layout_constraintLeft_toLeftOf="@id/server_uri"
         app:layout_constraintRight_toRightOf="@id/server_uri"
         app:layout_constraintTop_toTopOf="parent" />
 
     <EditText
+        style="@style/LargerTextField"
         android:id="@+id/server_uri"
         android:layout_width="400dp"
         android:layout_height="wrap_content"
@@ -25,7 +26,6 @@
         android:hint="@string/server_textfield_hint"
         android:inputType="textUri"
         android:maxLines="1"
-        android:minHeight="48dp"
         android:singleLine="true"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintLeft_toLeftOf="parent"

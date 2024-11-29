@@ -14,6 +14,7 @@ import org.jellyfin.sdk.api.client.extensions.userLibraryApi
 import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.ItemFilter
 import org.jellyfin.sdk.model.api.ItemSortBy
+import org.jellyfin.sdk.model.serializer.toUUID
 
 class JellyfinMediaTree(private val context: Context, private val api: ApiClient) {
 
@@ -33,7 +34,7 @@ class JellyfinMediaTree(private val context: Context, private val api: ApiClient
         // Ideally, this never happens because it shouldn't be possible to request an item by ID
         // without it having been fetched and cached by one of the getChildren delegates.
         if (mediaItems[id] == null) {
-            val response = api.itemsApi.getItems(ids = listOf(UUIDConverter.hyphenate(id)))
+            val response = api.itemsApi.getItems(ids = listOf(id.toUUID()))
             val baseItemDto = response.content.items[0]
             mediaItems[id] = itemFactory.create(baseItemDto)
         }
@@ -58,8 +59,8 @@ class JellyfinMediaTree(private val context: Context, private val api: ApiClient
 
     private suspend fun getLatestAlbums(): List<MediaItem> {
         val response = api.userLibraryApi.getLatestMedia(
-            limit = 21,
-            includeItemTypes = listOf(BaseItemKind.MUSIC_ALBUM)
+            includeItemTypes = listOf(BaseItemKind.MUSIC_ALBUM),
+            limit = 24
         )
 
         return response.content.map {
@@ -97,7 +98,7 @@ class JellyfinMediaTree(private val context: Context, private val api: ApiClient
                 ItemSortBy.INDEX_NUMBER,
                 ItemSortBy.SORT_NAME
             ),
-            parentId = UUIDConverter.hyphenate(id)
+            parentId = id.toUUID()
         )
 
         return response.content.items.map {
@@ -116,7 +117,7 @@ class JellyfinMediaTree(private val context: Context, private val api: ApiClient
             ),
             recursive = true,
             includeItemTypes = listOf(BaseItemKind.MUSIC_ALBUM),
-            albumArtistIds = listOf(UUIDConverter.hyphenate(id)),
+            albumArtistIds = listOf(id.toUUID()),
         )
 
         return response.content.items.map {

@@ -16,6 +16,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import org.jellyfin.sdk.Jellyfin
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.extensions.playStateApi
+import org.jellyfin.sdk.model.serializer.toUUID
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -69,11 +70,11 @@ class JellyfinMusicService : MediaLibraryService() {
     private suspend fun reportPlayback(player: Player) {
         if (player.isPlaying) {
             jellyfinApi.playStateApi.onPlaybackStart(
-                UUIDConverter.hyphenate(player.currentMediaItem!!.mediaId)
+                player.currentMediaItem!!.mediaId.toUUID()
             )
         } else {
             jellyfinApi.playStateApi.onPlaybackStopped(
-                UUIDConverter.hyphenate(player.currentMediaItem!!.mediaId)
+                player.currentMediaItem!!.mediaId.toUUID()
             )
         }
     }

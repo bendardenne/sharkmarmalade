@@ -127,7 +127,7 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
             .build()
 
         return MediaItem.Builder()
-            .setMediaId(UUIDConverter.dehyphenate(item.id))
+            .setMediaId(item.id.dehyphenate())
             .setMediaMetadata(metadata)
             .build()
     }
@@ -152,7 +152,7 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
             .build()
 
         return MediaItem.Builder()
-            .setMediaId(UUIDConverter.dehyphenate(item.id))
+            .setMediaId(item.id.dehyphenate())
             .setMediaMetadata(metadata)
             .build()
     }
@@ -195,7 +195,7 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
             .build()
 
         return MediaItem.Builder()
-            .setMediaId(UUIDConverter.dehyphenate(item.id))
+            .setMediaId(item.id.dehyphenate())
             .setMediaMetadata(metadata)
             .setUri(audioStream)
             .build()

@@ -31,6 +31,7 @@ import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.extensions.userLibraryApi
+import org.jellyfin.sdk.model.serializer.toUUID
 
 @OptIn(UnstableApi::class)
 class JellyfinMediaLibrarySessionCallback(
@@ -271,7 +272,7 @@ class JellyfinMediaLibrarySessionCallback(
     }
 
     private suspend fun applyRating(currentMediaItem: String, newRating: Rating) {
-        val id = UUIDConverter.hyphenate(currentMediaItem)
+        val id = currentMediaItem.toUUID()
 
         if (newRating == HeartRating(true)) {
             Log.i(LOG_MARKER, "Marking as favorite")

@@ -132,7 +132,7 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
             .build()
     }
 
-    private fun forAlbum(item: BaseItemDto, group: String? = null, parent: String? = null): MediaItem {
+    private fun forAlbum(item: BaseItemDto, group: String? = null): MediaItem {
         val artUrl = ImageApi(jellyfinApi).getItemImageUrl(item.id, ImageType.PRIMARY)
         val localUrl = AlbumArtContentProvider.mapUri(Uri.parse(artUrl))
 
@@ -209,7 +209,7 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
     ): MediaItem {
         return when (baseItemDto.type) {
             BaseItemKind.MUSIC_ARTIST -> forArtist(baseItemDto, group)
-            BaseItemKind.MUSIC_ALBUM -> forAlbum(baseItemDto, group, parent)
+            BaseItemKind.MUSIC_ALBUM -> forAlbum(baseItemDto, group)
             BaseItemKind.AUDIO -> forTrack(baseItemDto, group, parent)
             else -> throw UnsupportedOperationException("Can't create mediaItem for ${baseItemDto.type}")
         }

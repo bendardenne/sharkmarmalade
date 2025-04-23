@@ -25,11 +25,7 @@ class Authenticator(val context: Context) : AbstractAccountAuthenticator(context
         requiredFeatures: Array<out String>?,
         options: Bundle?
     ): Bundle {
-        val intent = Intent(context, SignInActivity::class.java)
-        intent.putExtra(AccountManager.KEY_ACCOUNT_AUTHENTICATOR_RESPONSE, response)
-        val bundle = Bundle()
-        bundle.putParcelable(AccountManager.KEY_INTENT, intent)
-        return bundle
+        return Bundle()
     }
 
     override fun confirmCredentials(

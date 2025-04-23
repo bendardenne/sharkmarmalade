@@ -23,6 +23,7 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
         const val LATEST_ALBUMS = "LATEST_ALBUMS_ID"
         const val RANDOM_ALBUMS = "RANDOM_ALBUMS_ID"
         const val FAVOURITES = "FAVOURITES_ID"
+        const val PLAYLISTS = "PLAYLISTS_ID"
         const val PARENT_KEY = "PARENT_KEY"
     }
 
@@ -98,6 +99,29 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
             .build()
     }
 
+    fun playlists(): MediaItem {
+        val extras = Bundle()
+        extras.putInt(
+            MediaConstants.EXTRAS_KEY_CONTENT_STYLE_PLAYABLE,
+            MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM
+        )
+
+
+        val metadata = MediaMetadata.Builder()
+            .setTitle("Playlists")
+            .setIsBrowsable(true)
+            .setIsPlayable(false)
+            .setArtworkUri(Uri.parse("android.resource://be.bendardenne.jellyfin.aaos/drawable/playlists"))
+            .setExtras(extras)
+            .setMediaType(MediaMetadata.MEDIA_TYPE_FOLDER_PLAYLISTS)
+            .build()
+
+        return MediaItem.Builder()
+            .setMediaId(PLAYLISTS)
+            .setMediaMetadata(metadata)
+            .build()
+    }
+
     private fun forArtist(item: BaseItemDto, group: String? = null): MediaItem {
         val artUrl = ImageApi(jellyfinApi).getItemImageUrl(item.id, ImageType.PRIMARY)
         val localUrl = AlbumArtContentProvider.mapUri(Uri.parse(artUrl))
@@ -148,6 +172,30 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
             .setIsPlayable(true)
             .setArtworkUri(localUrl)
             .setMediaType(MediaMetadata.MEDIA_TYPE_ALBUM)
+            .setExtras(extras)
+            .build()
+
+        return MediaItem.Builder()
+            .setMediaId(item.id.dehyphenate())
+            .setMediaMetadata(metadata)
+            .build()
+    }
+
+    private fun forPlaylist(item: BaseItemDto, group: String? = null): MediaItem {
+        val artUrl = ImageApi(jellyfinApi).getItemImageUrl(item.id, ImageType.PRIMARY)
+        val localUrl = AlbumArtContentProvider.mapUri(Uri.parse(artUrl))
+
+        val extras = Bundle()
+        if (group != null) {
+            extras.putString(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_GROUP_TITLE, group)
+        }
+
+        val metadata = MediaMetadata.Builder()
+            .setTitle(item.name)
+            .setIsBrowsable(false)
+            .setIsPlayable(true)
+            .setArtworkUri(localUrl)
+            .setMediaType(MediaMetadata.MEDIA_TYPE_PLAYLIST)
             .setExtras(extras)
             .build()
 
@@ -210,6 +258,7 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
         return when (baseItemDto.type) {
             BaseItemKind.MUSIC_ARTIST -> forArtist(baseItemDto, group)
             BaseItemKind.MUSIC_ALBUM -> forAlbum(baseItemDto, group)
+            BaseItemKind.PLAYLIST -> forPlaylist(baseItemDto, group)
             BaseItemKind.AUDIO -> forTrack(baseItemDto, group, parent)
             else -> throw UnsupportedOperationException("Can't create mediaItem for ${baseItemDto.type}")
         }

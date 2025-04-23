@@ -5,6 +5,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata.MEDIA_TYPE_ARTIST
 import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.FAVOURITES
 import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.LATEST_ALBUMS
+import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.PLAYLISTS
 import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.RANDOM_ALBUMS
 import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.ROOT_ID
 import org.jellyfin.sdk.api.client.ApiClient
@@ -14,6 +15,7 @@ import org.jellyfin.sdk.api.client.extensions.userLibraryApi
 import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.ItemFilter
 import org.jellyfin.sdk.model.api.ItemSortBy
+import org.jellyfin.sdk.model.api.SortOrder
 import org.jellyfin.sdk.model.serializer.toUUID
 
 class JellyfinMediaTree(private val context: Context, private val api: ApiClient) {
@@ -28,6 +30,7 @@ class JellyfinMediaTree(private val context: Context, private val api: ApiClient
         mediaItems[LATEST_ALBUMS] = itemFactory.latestAlbums()
         mediaItems[RANDOM_ALBUMS] = itemFactory.randomAlbums()
         mediaItems[FAVOURITES] = itemFactory.favourites()
+        mediaItems[PLAYLISTS] = itemFactory.playlists()
     }
 
     suspend fun getItem(id: String): MediaItem {
@@ -47,12 +50,14 @@ class JellyfinMediaTree(private val context: Context, private val api: ApiClient
             ROOT_ID -> listOf(
                 mediaItems[LATEST_ALBUMS]!!,
                 mediaItems[RANDOM_ALBUMS]!!,
-                mediaItems[FAVOURITES]!!
+                mediaItems[FAVOURITES]!!,
+                mediaItems[PLAYLISTS]!!
             )
 
             LATEST_ALBUMS -> getLatestAlbums()
             RANDOM_ALBUMS -> getRandomAlbums()
             FAVOURITES -> getFavouriteTracks()
+            PLAYLISTS -> getPlaylists()
             else -> getItemChildren(id)
         }
     }
@@ -74,9 +79,23 @@ class JellyfinMediaTree(private val context: Context, private val api: ApiClient
         val response = api.itemsApi.getItems(
             includeItemTypes = listOf(BaseItemKind.MUSIC_ALBUM),
             recursive = true,
-            sortBy = listOf(
-                ItemSortBy.RANDOM
-            ),
+            sortBy = listOf(ItemSortBy.RANDOM),
+            limit = 24
+        )
+
+        return response.content.items.map {
+            val item = itemFactory.create(it)
+            mediaItems[item.mediaId] = item
+            item
+        }
+    }
+
+    private suspend fun getPlaylists(): List<MediaItem> {
+        val response = api.itemsApi.getItems(
+            includeItemTypes = listOf(BaseItemKind.PLAYLIST),
+            recursive = true,
+            sortOrder = listOf(SortOrder.DESCENDING),
+            sortBy = listOf(ItemSortBy.DATE_CREATED),
             limit = 24
         )
 

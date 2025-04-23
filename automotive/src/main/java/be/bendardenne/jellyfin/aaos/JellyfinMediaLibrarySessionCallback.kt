@@ -193,8 +193,11 @@ class JellyfinMediaLibrarySessionCallback(
             Log.i(LOG_MARKER, "Resolving ${it.mediaId}")
             // We need to call getItem to resolve the content: the provided object only has an ID
             val item = tree.getItem(it.mediaId)
-            // If the item is an album, get its children and add them to the playlist.
-            if (item.mediaMetadata.mediaType == MediaMetadata.MEDIA_TYPE_ALBUM) {
+            // If the item is an album or playlist, get its children and add them to the playlist.
+            // Albums are playlists are "immediately playable" items, that actually load their
+            // children (tracks).
+            if (item.mediaMetadata.mediaType == MediaMetadata.MEDIA_TYPE_ALBUM ||
+                item.mediaMetadata.mediaType == MediaMetadata.MEDIA_TYPE_PLAYLIST ) {
                 resolveMediaItems(tree.getChildren(item.mediaId)).forEach(playlist::add)
             } else if (item.mediaMetadata.isPlayable == true) {
                 playlist.add(item)

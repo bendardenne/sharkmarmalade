@@ -12,5 +12,6 @@
     <string name="artists">Artists</string>
     <string name="tracks">Tracks</string>
     <string name="albums">Albums</string>
+    <string name="playlists">Playlists</string>
     <string name="sign_in_to_your_jellyfin_server">Sign in to your Jellyfin server</string>
 </resources>

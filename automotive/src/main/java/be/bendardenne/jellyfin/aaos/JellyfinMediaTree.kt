@@ -190,6 +190,20 @@ class JellyfinMediaTree(private val context: Context, private val api: ApiClient
         response = api.itemsApi.getItems(
             recursive = true,
             searchTerm = query,
+            includeItemTypes = listOf(BaseItemKind.PLAYLIST),
+            limit = 10
+        )
+
+        items.addAll(response.content.items.map {
+            val item = itemFactory.create(it, context.getString(R.string.playlists))
+            mediaItems[item.mediaId] = item
+            item
+        })
+
+
+        response = api.itemsApi.getItems(
+            recursive = true,
+            searchTerm = query,
             includeItemTypes = listOf(BaseItemKind.AUDIO),
             limit = 20
         )

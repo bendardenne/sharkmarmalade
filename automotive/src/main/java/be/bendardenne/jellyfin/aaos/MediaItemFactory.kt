@@ -106,7 +106,6 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
             MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM
         )
 
-
         val metadata = MediaMetadata.Builder()
             .setTitle("Playlists")
             .setIsBrowsable(true)

@@ -8,6 +8,8 @@ import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.LATEST_ALBUMS
 import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.PLAYLISTS
 import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.RANDOM_ALBUMS
 import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.ROOT_ID
+import com.google.common.cache.Cache
+import com.google.common.cache.CacheBuilder
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.extensions.artistsApi
 import org.jellyfin.sdk.api.client.extensions.itemsApi
@@ -22,36 +24,39 @@ class JellyfinMediaTree(private val context: Context, private val api: ApiClient
 
     private val itemFactory = MediaItemFactory(api)
 
-    // TODO make this a Cache ?
-    private val mediaItems: MutableMap<String, MediaItem> = mutableMapOf()
-
-    init {
-        mediaItems[ROOT_ID] = itemFactory.rootNode()
-        mediaItems[LATEST_ALBUMS] = itemFactory.latestAlbums()
-        mediaItems[RANDOM_ALBUMS] = itemFactory.randomAlbums()
-        mediaItems[FAVOURITES] = itemFactory.favourites()
-        mediaItems[PLAYLISTS] = itemFactory.playlists()
-    }
+    private val mediaItems: Cache<String, MediaItem> = CacheBuilder.newBuilder()
+        .maximumSize(1000)
+        .build()
 
     suspend fun getItem(id: String): MediaItem {
-        // Ideally, this never happens because it shouldn't be possible to request an item by ID
-        // without it having been fetched and cached by one of the getChildren delegates.
-        if (mediaItems[id] == null) {
-            val response = api.itemsApi.getItems(ids = listOf(id.toUUID()))
-            val baseItemDto = response.content.items[0]
-            mediaItems[id] = itemFactory.create(baseItemDto)
+        if (mediaItems.getIfPresent(id) == null) {
+            // Cache miss
+            val newItem = when (id) {
+                ROOT_ID -> itemFactory.rootNode()
+                LATEST_ALBUMS -> itemFactory.latestAlbums()
+                RANDOM_ALBUMS -> itemFactory.randomAlbums()
+                FAVOURITES -> itemFactory.favourites()
+                PLAYLISTS -> itemFactory.playlists()
+                else -> {
+                    val response = api.itemsApi.getItems(ids = listOf(id.toUUID()))
+                    val baseItemDto = response.content.items[0]
+                    itemFactory.create(baseItemDto)
+                }
+            }
+
+            mediaItems.put(id, newItem)
         }
 
-        return mediaItems[id]!!
+        return mediaItems.getIfPresent(id)!!
     }
 
     suspend fun getChildren(id: String): List<MediaItem> {
         return when (id) {
             ROOT_ID -> listOf(
-                mediaItems[LATEST_ALBUMS]!!,
-                mediaItems[RANDOM_ALBUMS]!!,
-                mediaItems[FAVOURITES]!!,
-                mediaItems[PLAYLISTS]!!
+                getItem(LATEST_ALBUMS),
+                getItem(RANDOM_ALBUMS),
+                getItem(FAVOURITES),
+                getItem(PLAYLISTS)
             )
 
             LATEST_ALBUMS -> getLatestAlbums()
@@ -70,7 +75,7 @@ class JellyfinMediaTree(private val context: Context, private val api: ApiClient
 
         return response.content.map {
             val item = itemFactory.create(it)
-            mediaItems[item.mediaId] = item
+            mediaItems.put(item.mediaId, item)
             item
         }
     }
@@ -85,7 +90,7 @@ class JellyfinMediaTree(private val context: Context, private val api: ApiClient
 
         return response.content.items.map {
             val item = itemFactory.create(it)
-            mediaItems[item.mediaId] = item
+            mediaItems.put(item.mediaId, item)
             item
         }
     }
@@ -101,13 +106,13 @@ class JellyfinMediaTree(private val context: Context, private val api: ApiClient
 
         return response.content.items.map {
             val item = itemFactory.create(it)
-            mediaItems[item.mediaId] = item
+            mediaItems.put(item.mediaId, item)
             item
         }
     }
 
     private suspend fun getItemChildren(id: String): List<MediaItem> {
-        if (mediaItems[id]?.mediaMetadata?.mediaType == MEDIA_TYPE_ARTIST) {
+        if (mediaItems.getIfPresent(id)?.mediaMetadata?.mediaType == MEDIA_TYPE_ARTIST) {
             return getArtistAlbums(id)
         }
 
@@ -122,7 +127,7 @@ class JellyfinMediaTree(private val context: Context, private val api: ApiClient
 
         return response.content.items.map {
             val item = itemFactory.create(it, parent = id)
-            mediaItems[item.mediaId] = item
+            mediaItems.put(item.mediaId, item)
             item
         }
     }
@@ -141,7 +146,7 @@ class JellyfinMediaTree(private val context: Context, private val api: ApiClient
 
         return response.content.items.map {
             val item = itemFactory.create(it)
-            mediaItems[item.mediaId] = item
+            mediaItems.put(item.mediaId, item)
             item
         }
     }
@@ -155,7 +160,7 @@ class JellyfinMediaTree(private val context: Context, private val api: ApiClient
 
         return response.content.items.map {
             val item = itemFactory.create(it, parent = FAVOURITES)
-            mediaItems[item.mediaId] = item
+            mediaItems.put(item.mediaId, item)
             item
         }
     }
@@ -170,7 +175,7 @@ class JellyfinMediaTree(private val context: Context, private val api: ApiClient
 
         items.addAll(response.content.items.map {
             val item = itemFactory.create(it, context.getString(R.string.artists))
-            mediaItems[item.mediaId] = item
+            mediaItems.put(item.mediaId, item)
             item
         })
 
@@ -183,7 +188,7 @@ class JellyfinMediaTree(private val context: Context, private val api: ApiClient
 
         items.addAll(response.content.items.map {
             val item = itemFactory.create(it, context.getString(R.string.albums))
-            mediaItems[item.mediaId] = item
+            mediaItems.put(item.mediaId, item)
             item
         })
 
@@ -196,7 +201,7 @@ class JellyfinMediaTree(private val context: Context, private val api: ApiClient
 
         items.addAll(response.content.items.map {
             val item = itemFactory.create(it, context.getString(R.string.playlists))
-            mediaItems[item.mediaId] = item
+            mediaItems.put(item.mediaId, item)
             item
         })
 
@@ -210,7 +215,7 @@ class JellyfinMediaTree(private val context: Context, private val api: ApiClient
 
         items.addAll(response.content.items.map {
             val item = itemFactory.create(it, context.getString(R.string.tracks))
-            mediaItems[item.mediaId] = item
+            mediaItems.put(item.mediaId, item)
             item
         })
 

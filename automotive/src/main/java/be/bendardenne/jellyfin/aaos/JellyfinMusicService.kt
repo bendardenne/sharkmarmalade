@@ -59,7 +59,12 @@ class JellyfinMusicService : MediaLibraryService() {
 
         val callback = JellyfinMediaLibrarySessionCallback(this, accountManager, jellyfinApi)
 
+        // Start in Repeat all & no shuffle by default
+        player.repeatMode = Player.REPEAT_MODE_ALL
+        player.shuffleModeEnabled = false
+
         mediaLibrarySession = MediaLibrarySession.Builder(this, player, callback)
+            .setMediaButtonPreferences(CommandButtons.createButtons(player))
             .build()
 
         if (accountManager.isAuthenticated) {

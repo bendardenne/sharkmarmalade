@@ -41,7 +41,9 @@ class JellyfinMediaLibrarySessionCallback(
 ) : MediaLibraryService.MediaLibrarySession.Callback {
 
     companion object {
-        const val LOGIN = "be.bendardenne.jellyfin.aaos.COMMAND.LOGIN"
+        const val LOGIN_COMMAND = "be.bendardenne.jellyfin.aaos.COMMAND.LOGIN"
+        const val REPEAT_COMMAND = "be.bendardenne.jellyfin.aaos.COMMAND.REPEAT"
+        const val SHUFFLE_COMMAND = "be.bendardenne.jellyfin.aaos.COMMAND.SHUFFLE"
     }
 
     private val tree = JellyfinMediaTree(service, jellyfinApi)
@@ -51,9 +53,12 @@ class JellyfinMediaLibrarySessionCallback(
         controller: MediaSession.ControllerInfo
     ): ConnectionResult {
         val connectionResult = super.onConnect(session, controller)
+
         val sessionCommands = connectionResult.availableSessionCommands
             .buildUpon()
-            .add(SessionCommand(LOGIN, Bundle()))
+            .add(SessionCommand(LOGIN_COMMAND, Bundle()))
+            .add(SessionCommand(REPEAT_COMMAND, Bundle()))
+            .add(SessionCommand(SHUFFLE_COMMAND, Bundle()))
             .build()
 
         return ConnectionResult.accept(
@@ -197,7 +202,8 @@ class JellyfinMediaLibrarySessionCallback(
             // Albums are playlists are "immediately playable" items, that actually load their
             // children (tracks).
             if (item.mediaMetadata.mediaType == MediaMetadata.MEDIA_TYPE_ALBUM ||
-                item.mediaMetadata.mediaType == MediaMetadata.MEDIA_TYPE_PLAYLIST ) {
+                item.mediaMetadata.mediaType == MediaMetadata.MEDIA_TYPE_PLAYLIST
+            ) {
                 resolveMediaItems(tree.getChildren(item.mediaId)).forEach(playlist::add)
             } else if (item.mediaMetadata.isPlayable == true) {
                 playlist.add(item)
@@ -245,11 +251,25 @@ class JellyfinMediaLibrarySessionCallback(
     ): ListenableFuture<SessionResult> {
         Log.i(LOG_MARKER, "CustomCommand: ${customCommand.customAction}")
         when (customCommand.customAction) {
-            LOGIN -> {
+            LOGIN_COMMAND -> {
                 service.onLogin()
                 return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
             }
+
+            REPEAT_COMMAND -> {
+                val currentMode = session.player.repeatMode
+                session.player.repeatMode = (currentMode + 1) % 3 // There are 3 repeat modes
+                session.setMediaButtonPreferences(CommandButtons.createButtons(session.player))
+                return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+            }
+
+            SHUFFLE_COMMAND -> {
+                session.player.shuffleModeEnabled = !session.player.shuffleModeEnabled
+                session.setMediaButtonPreferences(CommandButtons.createButtons(session.player))
+                return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+            }
         }
+
         return super.onCustomCommand(session, controller, customCommand, args)
     }
 

@@ -9,7 +9,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionToken
-import be.bendardenne.jellyfin.aaos.JellyfinMediaLibrarySessionCallback.Companion.LOGIN
+import be.bendardenne.jellyfin.aaos.JellyfinMediaLibrarySessionCallback.Companion.LOGIN_COMMAND
 import be.bendardenne.jellyfin.aaos.JellyfinMusicService
 import be.bendardenne.jellyfin.aaos.R
 import dagger.hilt.android.AndroidEntryPoint
@@ -37,7 +37,7 @@ class SignInActivity : AppCompatActivity() {
 
                 lifecycleScope.launch {
                     val controller = future.await()
-                    controller.sendCustomCommand(SessionCommand(LOGIN, Bundle()), Bundle())
+                    controller.sendCustomCommand(SessionCommand(LOGIN_COMMAND, Bundle()), Bundle())
                     finish()
                 }
 

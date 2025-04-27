@@ -1,8 +1,14 @@
 <resources>
     <string name="app_name">Shark Marmalade</string>
+    <string name="sign_in_to_your_jellyfin_server">Sign in to your Jellyfin server</string>
     <string name="server_textfield_hint">https://myjellyfin.server.com:8096</string>
     <string name="server_button_label">Connect to server</string>
     <string name="server_textfield_error">Server URL cannot be empty</string>
+    <string name="quickconnect">QuickConnect</string>
+    <string name="quickconnect_succeeded">QuickConnect succeeded</string>
+    <string name="quickconnect_instructions">Open Jellyfin on your phone,\n select QuickConnect,\n and enter this code.</string>
+    <string name="error">Error</string>
+    <string name="unavailable">Unavailable</string>
     <string name="username_textfield_hint">username</string>
     <string name="password_textfield_hint">password</string>
     <string name="login_button_label">Log In</string>
@@ -13,5 +19,4 @@
     <string name="tracks">Tracks</string>
     <string name="albums">Albums</string>
     <string name="playlists">Playlists</string>
-    <string name="sign_in_to_your_jellyfin_server">Sign in to your Jellyfin server</string>
 </resources>

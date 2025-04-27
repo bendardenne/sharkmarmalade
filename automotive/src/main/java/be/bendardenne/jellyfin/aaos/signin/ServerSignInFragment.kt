@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
@@ -21,6 +22,7 @@ class ServerSignInFragment : Fragment() {
 
     private lateinit var serverInput: EditText
     private lateinit var submitServer: Button
+    private lateinit var progressBar: ProgressBar
     private lateinit var viewModel: SignInActivityViewModel
 
     override fun onCreateView(
@@ -37,10 +39,12 @@ class ServerSignInFragment : Fragment() {
 
         serverInput = view.findViewById(R.id.server_uri)
         submitServer = view.findViewById(R.id.submit_server_button)
+        progressBar = view.findViewById(R.id.progress_bar)
 
         submitServer.setOnClickListener {
             val serverUrl = serverInput.text
             if (!TextUtils.isEmpty(serverUrl)) {
+                progressBar.visibility = View.VISIBLE
 
                 viewLifecycleOwner.lifecycleScope.launch {
                     val pingServer = viewModel.pingServer(serverUrl.toString())
@@ -48,6 +52,7 @@ class ServerSignInFragment : Fragment() {
                     if (pingServer) {
                         signInToServer(serverUrl)
                     } else {
+                        progressBar.visibility = View.INVISIBLE
                         Toast.makeText(context, R.string.server_unreachable, Toast.LENGTH_SHORT)
                             .show()
                     }

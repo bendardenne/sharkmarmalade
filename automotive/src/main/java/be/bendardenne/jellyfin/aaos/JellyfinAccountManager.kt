@@ -25,7 +25,7 @@ class JellyfinAccountManager(private val accountManager: AccountManager) {
     val isAuthenticated: Boolean
         get() = token != null
 
-    fun storeAccount(server: String, username: String, password: String): Account {
+    fun storeAccount(server: String, username: String, token: String): Account {
         // Find existing account, if any
         var account = accountManager.getAccountsByType(ACCOUNT_TYPE).firstOrNull {
             accountManager.getUserData(it, USERDATA_SERVER_KEY).equals(server) &&
@@ -36,16 +36,13 @@ class JellyfinAccountManager(private val accountManager: AccountManager) {
             account = Account(username, ACCOUNT_TYPE)
             accountManager.addAccountExplicitly(
                 account,
-                password,
+                "",     // We don't keep the password, just the auth token.
                 Bundle().also { it.putString(USERDATA_SERVER_KEY, server) }
             )
         }
 
-        accountManager.setPassword(account, password)
-        return account
-    }
-
-    fun updateToken(account: Account, token: String) {
         accountManager.setAuthToken(account, TOKEN_TYPE, token)
+
+        return account
     }
 }

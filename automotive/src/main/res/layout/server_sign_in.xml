@@ -8,18 +8,18 @@
     android:orientation="vertical">
 
     <ImageView
-        android:src="@drawable/app_logo"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:layout_margin="50dp"
+        android:src="@drawable/app_logo"
         app:layout_constraintBottom_toTopOf="@+id/server_uri"
         app:layout_constraintLeft_toLeftOf="@id/server_uri"
         app:layout_constraintRight_toRightOf="@id/server_uri"
         app:layout_constraintTop_toTopOf="parent" />
 
     <EditText
-        style="@style/LargerTextField"
         android:id="@+id/server_uri"
+        style="@style/LargerTextField"
         android:layout_width="400dp"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
@@ -31,6 +31,15 @@
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
+
+    <ProgressBar
+        android:id="@+id/progress_bar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="invisible"
+        app:layout_constraintBottom_toBottomOf="@id/server_uri"
+        app:layout_constraintLeft_toRightOf="@id/server_uri"
+        app:layout_constraintTop_toTopOf="@id/server_uri" />
 
     <Button
         android:id="@+id/submit_server_button"

@@ -21,7 +21,7 @@ class JellyfinHiltModule {
             appContext.packageManager.getPackageInfo(appContext.packageName, 0).versionName
 
         return createJellyfin {
-             clientInfo = ClientInfo(appContext.getString(R.string.app_name), version ?: "unknown")
+            clientInfo = ClientInfo(appContext.getString(R.string.app_name), version ?: "unknown")
             deviceInfo = androidDevice(appContext)
             context = appContext
         }

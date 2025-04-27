@@ -242,7 +242,6 @@ class JellyfinMediaLibrarySessionCallback(
         }
     }
 
-    // TODO shuffle ??
     override fun onCustomCommand(
         session: MediaSession,
         controller: MediaSession.ControllerInfo,

@@ -125,7 +125,6 @@ class MediaItemFactory(
     }
 
     private fun forArtist(item: BaseItemDto, group: String? = null): MediaItem {
-        // TODO onGetRoot provides a hint size in the params.extras
         val artUrl = ImageApi(jellyfinApi).getItemImageUrl(
             item.id,
             ImageType.PRIMARY,

@@ -11,6 +11,7 @@ import androidx.media3.session.MediaConstants
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.extensions.universalAudioApi
 import org.jellyfin.sdk.api.operations.ImageApi
+import org.jellyfin.sdk.model.UUID
 import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.ImageType
@@ -86,7 +87,6 @@ class MediaItemFactory(
             MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM
         )
 
-
         val metadata = MediaMetadata.Builder()
             .setTitle("Favourites")
             .setIsBrowsable(true)
@@ -125,15 +125,6 @@ class MediaItemFactory(
     }
 
     private fun forArtist(item: BaseItemDto, group: String? = null): MediaItem {
-        val artUrl = ImageApi(jellyfinApi).getItemImageUrl(
-            item.id,
-            ImageType.PRIMARY,
-            quality = 90,
-            maxWidth = artSize,
-            maxHeight = artSize,
-        )
-        val localUrl = AlbumArtContentProvider.mapUri(Uri.parse(artUrl))
-
         val extras = Bundle()
         if (group != null) {
             extras.putString(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_GROUP_TITLE, group)
@@ -153,7 +144,7 @@ class MediaItemFactory(
             .setAlbumArtist(item.albumArtist)
             .setIsBrowsable(true)
             .setIsPlayable(false)
-            .setArtworkUri(localUrl)
+            .setArtworkUri(artUri(item.id))
             .setMediaType(MediaMetadata.MEDIA_TYPE_ARTIST)
             .setExtras(extras)
             .build()
@@ -165,15 +156,6 @@ class MediaItemFactory(
     }
 
     private fun forAlbum(item: BaseItemDto, group: String? = null): MediaItem {
-        val artUrl = ImageApi(jellyfinApi).getItemImageUrl(
-            item.id,
-            ImageType.PRIMARY,
-            quality = 90,
-            maxWidth = artSize,
-            maxHeight = artSize,
-        )
-        val localUrl = AlbumArtContentProvider.mapUri(Uri.parse(artUrl))
-
         val extras = Bundle()
         if (group != null) {
             extras.putString(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_GROUP_TITLE, group)
@@ -184,7 +166,7 @@ class MediaItemFactory(
             .setAlbumArtist(item.albumArtist)
             .setIsBrowsable(false)
             .setIsPlayable(true)
-            .setArtworkUri(localUrl)
+            .setArtworkUri(artUri(item.id))
             .setMediaType(MediaMetadata.MEDIA_TYPE_ALBUM)
             .setExtras(extras)
             .build()
@@ -196,15 +178,6 @@ class MediaItemFactory(
     }
 
     private fun forPlaylist(item: BaseItemDto, group: String? = null): MediaItem {
-        val artUrl = ImageApi(jellyfinApi).getItemImageUrl(
-            item.id,
-            ImageType.PRIMARY,
-            quality = 90,
-            maxWidth = artSize,
-            maxHeight = artSize,
-        )
-        val localUrl = AlbumArtContentProvider.mapUri(Uri.parse(artUrl))
-
         val extras = Bundle()
         if (group != null) {
             extras.putString(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_GROUP_TITLE, group)
@@ -214,7 +187,7 @@ class MediaItemFactory(
             .setTitle(item.name)
             .setIsBrowsable(false)
             .setIsPlayable(true)
-            .setArtworkUri(localUrl)
+            .setArtworkUri(artUri(item.id))
             .setMediaType(MediaMetadata.MEDIA_TYPE_PLAYLIST)
             .setExtras(extras)
             .build()
@@ -234,14 +207,7 @@ class MediaItemFactory(
         // This way, all tracks in an album have the same URI, which saves some downloads.
         // It probably makes sense most of the time, unless someone uses different images for
         // tracks within the same album, which seems weird.
-        val artUrl = ImageApi(jellyfinApi).getItemImageUrl(
-            item.albumId ?: item.id,
-            ImageType.PRIMARY,
-            quality = 90,
-            maxWidth = artSize,
-            maxHeight = artSize,
-        )
-        val localUrl = AlbumArtContentProvider.mapUri(Uri.parse(artUrl))
+        val artUrl = artUri(item.albumId ?: item.id)
 
         // FIXME make this configurable?
         var audioStream =
@@ -266,7 +232,7 @@ class MediaItemFactory(
             .setAlbumArtist(item.albumArtist)
             .setIsBrowsable(false)
             .setIsPlayable(true)
-            .setArtworkUri(localUrl)
+            .setArtworkUri(artUrl)
             .setUserRating(HeartRating(item.userData?.isFavorite ?: false))
             .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
             .setDurationMs(item.runTimeTicks?.div(10_000))
@@ -278,6 +244,18 @@ class MediaItemFactory(
             .setMediaMetadata(metadata)
             .setUri(audioStream)
             .build()
+    }
+
+    private fun artUri(id: UUID): Uri {
+        val artUrl = ImageApi(jellyfinApi).getItemImageUrl(
+            id,
+            ImageType.PRIMARY,
+            quality = 90,
+            maxWidth = artSize,
+            maxHeight = artSize,
+        )
+        val localUrl = AlbumArtContentProvider.mapUri(Uri.parse(artUrl))
+        return localUrl
     }
 
 

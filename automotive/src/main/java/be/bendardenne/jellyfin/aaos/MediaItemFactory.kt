@@ -16,7 +16,10 @@ import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.ImageType
 
 @OptIn(UnstableApi::class)
-class MediaItemFactory(private val jellyfinApi: ApiClient) {
+class MediaItemFactory(
+    private val jellyfinApi: ApiClient,
+    private val artSize: Int
+) {
 
     companion object {
         const val ROOT_ID = "ROOT_ID"
@@ -122,11 +125,13 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
     }
 
     private fun forArtist(item: BaseItemDto, group: String? = null): MediaItem {
+        // TODO onGetRoot provides a hint size in the params.extras
         val artUrl = ImageApi(jellyfinApi).getItemImageUrl(
             item.id,
             ImageType.PRIMARY,
             quality = 90,
-            maxWidth = 1024
+            maxWidth = artSize,
+            maxHeight = artSize,
         )
         val localUrl = AlbumArtContentProvider.mapUri(Uri.parse(artUrl))
 
@@ -165,7 +170,8 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
             item.id,
             ImageType.PRIMARY,
             quality = 90,
-            maxWidth = 1024
+            maxWidth = artSize,
+            maxHeight = artSize,
         )
         val localUrl = AlbumArtContentProvider.mapUri(Uri.parse(artUrl))
 
@@ -195,7 +201,8 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
             item.id,
             ImageType.PRIMARY,
             quality = 90,
-            maxWidth = 1024
+            maxWidth = artSize,
+            maxHeight = artSize,
         )
         val localUrl = AlbumArtContentProvider.mapUri(Uri.parse(artUrl))
 
@@ -232,10 +239,12 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
             item.albumId ?: item.id,
             ImageType.PRIMARY,
             quality = 90,
-            maxWidth = 1024
+            maxWidth = artSize,
+            maxHeight = artSize,
         )
         val localUrl = AlbumArtContentProvider.mapUri(Uri.parse(artUrl))
 
+        // FIXME make this configurable?
         var audioStream =
             jellyfinApi.universalAudioApi.getUniversalAudioStreamUrl(
                 item.id,

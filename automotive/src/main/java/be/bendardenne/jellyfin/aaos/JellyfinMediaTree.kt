@@ -20,9 +20,13 @@ import org.jellyfin.sdk.model.api.ItemSortBy
 import org.jellyfin.sdk.model.api.SortOrder
 import org.jellyfin.sdk.model.serializer.toUUID
 
-class JellyfinMediaTree(private val context: Context, private val api: ApiClient) {
+class JellyfinMediaTree(
+    private val context: Context,
+    private val api: ApiClient,
+    artSize: Int
+) {
 
-    private val itemFactory = MediaItemFactory(api)
+    private val itemFactory = MediaItemFactory(api, artSize)
 
     private val mediaItems: Cache<String, MediaItem> = CacheBuilder.newBuilder()
         .maximumSize(1000)

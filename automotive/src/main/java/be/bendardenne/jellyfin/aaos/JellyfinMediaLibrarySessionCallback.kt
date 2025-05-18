@@ -16,6 +16,7 @@ import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaConstants.EXTRAS_KEY_ERROR_RESOLUTION_ACTION_INTENT_COMPAT
 import androidx.media3.session.MediaConstants.EXTRAS_KEY_ERROR_RESOLUTION_ACTION_LABEL_COMPAT
 import androidx.media3.session.MediaConstants.EXTRAS_KEY_ERROR_RESOLUTION_USING_CAR_APP_LIBRARY_INTENT_COMPAT
+import androidx.media3.session.MediaConstants.EXTRAS_KEY_MEDIA_ART_SIZE_PIXELS
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSession.ConnectionResult
@@ -46,7 +47,7 @@ class JellyfinMediaLibrarySessionCallback(
         const val SHUFFLE_COMMAND = "be.bendardenne.jellyfin.aaos.COMMAND.SHUFFLE"
     }
 
-    private val tree = JellyfinMediaTree(service, jellyfinApi)
+    private lateinit var tree: JellyfinMediaTree;
 
     override fun onConnect(
         session: MediaSession,
@@ -73,6 +74,13 @@ class JellyfinMediaLibrarySessionCallback(
         params: MediaLibraryService.LibraryParams?
     ): ListenableFuture<LibraryResult<MediaItem>> {
         Log.i(LOG_MARKER, "onGetRoot")
+
+        if (!::tree.isInitialized) {
+            val artSize = params?.extras?.getInt(EXTRAS_KEY_MEDIA_ART_SIZE_PIXELS) ?: 512
+            Log.d(LOG_MARKER, "Art size hint from system: $artSize")
+            tree = JellyfinMediaTree(service, jellyfinApi, artSize)
+        }
+
         return SuspendToFutureAdapter.launchFuture {
             LibraryResult.ofItem(
                 tree.getItem(ROOT_ID),
@@ -162,6 +170,7 @@ class JellyfinMediaLibrarySessionCallback(
     ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
         Log.i(LOG_MARKER, "onSetMediaItems $mediaItems")
         return SuspendToFutureAdapter.launchFuture {
+            // When setting a single element in the playlist, automatically add its siblings too.
             if (isSingleItemWithParent(mediaItems)) {
                 val singleItem = mediaItems[0]
                 val resolvedItems = expandSingleItem(singleItem)
@@ -191,6 +200,10 @@ class JellyfinMediaLibrarySessionCallback(
         return resolveMediaItems(tree.getChildren(parentId))
     }
 
+    /**
+     * Expands items to a list of playable items: collections are expanded to get to the playable
+     * nodes.
+     */
     private suspend fun resolveMediaItems(mediaItems: List<MediaItem>): List<MediaItem> {
         val playlist = mutableListOf<MediaItem>()
 

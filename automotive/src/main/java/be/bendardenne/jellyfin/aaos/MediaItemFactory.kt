@@ -122,7 +122,12 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
     }
 
     private fun forArtist(item: BaseItemDto, group: String? = null): MediaItem {
-        val artUrl = ImageApi(jellyfinApi).getItemImageUrl(item.id, ImageType.PRIMARY)
+        val artUrl = ImageApi(jellyfinApi).getItemImageUrl(
+            item.id,
+            ImageType.PRIMARY,
+            quality = 90,
+            maxWidth = 1024
+        )
         val localUrl = AlbumArtContentProvider.mapUri(Uri.parse(artUrl))
 
         val extras = Bundle()
@@ -156,7 +161,12 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
     }
 
     private fun forAlbum(item: BaseItemDto, group: String? = null): MediaItem {
-        val artUrl = ImageApi(jellyfinApi).getItemImageUrl(item.id, ImageType.PRIMARY)
+        val artUrl = ImageApi(jellyfinApi).getItemImageUrl(
+            item.id,
+            ImageType.PRIMARY,
+            quality = 90,
+            maxWidth = 1024
+        )
         val localUrl = AlbumArtContentProvider.mapUri(Uri.parse(artUrl))
 
         val extras = Bundle()
@@ -181,7 +191,12 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
     }
 
     private fun forPlaylist(item: BaseItemDto, group: String? = null): MediaItem {
-        val artUrl = ImageApi(jellyfinApi).getItemImageUrl(item.id, ImageType.PRIMARY)
+        val artUrl = ImageApi(jellyfinApi).getItemImageUrl(
+            item.id,
+            ImageType.PRIMARY,
+            quality = 90,
+            maxWidth = 1024
+        )
         val localUrl = AlbumArtContentProvider.mapUri(Uri.parse(artUrl))
 
         val extras = Bundle()
@@ -209,7 +224,16 @@ class MediaItemFactory(private val jellyfinApi: ApiClient) {
         group: String? = null,
         parent: String? = null
     ): MediaItem {
-        val artUrl = ImageApi(jellyfinApi).getItemImageUrl(item.id, ImageType.PRIMARY)
+        // Use the album ID for album art, if present.
+        // This way, all tracks in an album have the same URI, which saves some downloads.
+        // It probably makes sense most of the time, unless someone uses different images for
+        // tracks within the same album, which seems weird.
+        val artUrl = ImageApi(jellyfinApi).getItemImageUrl(
+            item.albumId ?: item.id,
+            ImageType.PRIMARY,
+            quality = 90,
+            maxWidth = 1024
+        )
         val localUrl = AlbumArtContentProvider.mapUri(Uri.parse(artUrl))
 
         var audioStream =

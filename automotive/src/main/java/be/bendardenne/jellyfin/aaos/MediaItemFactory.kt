@@ -1,5 +1,6 @@
 package be.bendardenne.jellyfin.aaos
 
+import android.content.Context
 import android.net.Uri
 import android.os.Bundle
 import androidx.annotation.OptIn
@@ -8,6 +9,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaConstants
+import androidx.preference.PreferenceManager
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.extensions.universalAudioApi
 import org.jellyfin.sdk.api.operations.ImageApi
@@ -18,6 +20,7 @@ import org.jellyfin.sdk.model.api.ImageType
 
 @OptIn(UnstableApi::class)
 class MediaItemFactory(
+    private val context: Context,
     private val jellyfinApi: ApiClient,
     private val artSize: Int
 ) {
@@ -150,7 +153,7 @@ class MediaItemFactory(
             .build()
 
         return MediaItem.Builder()
-            .setMediaId(item.id.dehyphenate())
+            .setMediaId(item.toString())
             .setMediaMetadata(metadata)
             .build()
     }
@@ -172,7 +175,7 @@ class MediaItemFactory(
             .build()
 
         return MediaItem.Builder()
-            .setMediaId(item.id.dehyphenate())
+            .setMediaId(item.id.toString())
             .setMediaMetadata(metadata)
             .build()
     }
@@ -193,7 +196,7 @@ class MediaItemFactory(
             .build()
 
         return MediaItem.Builder()
-            .setMediaId(item.id.dehyphenate())
+            .setMediaId(item.id.toString())
             .setMediaMetadata(metadata)
             .build()
     }
@@ -209,16 +212,21 @@ class MediaItemFactory(
         // tracks within the same album, which seems weird.
         val artUrl = artUri(item.albumId ?: item.id)
 
-        // FIXME make this configurable?
-        var audioStream =
+        val preferenceBitrate = PreferenceManager
+            .getDefaultSharedPreferences(context)
+            .getString("bitrate", "Direct stream")!!
+
+        val bitrate = if (preferenceBitrate == "Direct stream") null else preferenceBitrate.toInt()
+
+        val audioStream =
             jellyfinApi.universalAudioApi.getUniversalAudioStreamUrl(
                 item.id,
-                container = listOf("flac,mp3"),
-                audioCodec = "flac,mp3",
+                container = listOf("flac", "mp3", "aac", "m4a"),
+                audioBitRate = bitrate,
+                maxStreamingBitrate = bitrate,
+                transcodingContainer = "mp3",
+                audioCodec = "mp3",
             )
-
-        // FIXME hack, due to Jellyfin API using UUID object
-        audioStream = audioStream.replace("-", "")
 
         val extras = Bundle()
         if (group != null) {
@@ -240,7 +248,7 @@ class MediaItemFactory(
             .build()
 
         return MediaItem.Builder()
-            .setMediaId(item.id.dehyphenate())
+            .setMediaId(item.id.toString())
             .setMediaMetadata(metadata)
             .setUri(audioStream)
             .build()

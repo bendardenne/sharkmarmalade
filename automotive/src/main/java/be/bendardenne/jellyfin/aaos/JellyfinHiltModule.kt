@@ -15,6 +15,7 @@ import org.jellyfin.sdk.model.ClientInfo
 @Module
 @InstallIn(SingletonComponent::class)
 class JellyfinHiltModule {
+
     @Provides
     fun provideJellyfin(@ApplicationContext appContext: Context): Jellyfin {
         val version =

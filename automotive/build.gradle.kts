@@ -13,7 +13,7 @@ android {
         applicationId = "be.bendardenne.jellyfin.aaos"
         minSdk = 29
         targetSdk = 34
-        versionCode = 21
+        versionCode = 22
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -21,6 +21,7 @@ android {
 
     buildFeatures {
         dataBinding = true
+        viewBinding = true
     }
 
     buildTypes {
@@ -42,21 +43,20 @@ android {
 }
 
 dependencies {
+    implementation("androidx.car:car:1.0.0-alpha7")
     implementation("androidx.core:core-ktx:1.16.0")
-    implementation("androidx.appcompat:appcompat:1.7.0")
-    implementation("androidx.media3:media3-exoplayer:1.6.1")
-    implementation("androidx.media3:media3-session:1.6.1")
-    implementation("androidx.media3:media3-ui:1.6.1")
+    implementation("androidx.constraintlayout:constraintlayout:2.2.1")
+    implementation("androidx.preference:preference-ktx:1.2.1")
     implementation("androidx.concurrent:concurrent-futures-ktx:1.2.0")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7")
-    implementation("androidx.appcompat:appcompat:1.7.0")
+    implementation("androidx.credentials:credentials:1.5.0")
+    implementation("androidx.databinding:databinding-runtime:8.10.0")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.0")
+    implementation("androidx.media3:media3-exoplayer:1.7.1")
+    implementation("androidx.media3:media3-session:1.7.1")
+    implementation("androidx.media3:media3-ui:1.7.1")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jellyfin.sdk:jellyfin-core:1.6.1")
-    implementation("androidx.constraintlayout:constraintlayout:2.2.1")
-    implementation("com.google.android.material:material:1.12.0")
     implementation("com.google.dagger:hilt-android:2.51.1")
-    implementation("androidx.credentials:credentials:1.5.0")
-    implementation("androidx.databinding:databinding-runtime:8.9.2")
     kapt("com.google.dagger:hilt-compiler:2.51.1")
 
     testImplementation("junit:junit:4.13.2")

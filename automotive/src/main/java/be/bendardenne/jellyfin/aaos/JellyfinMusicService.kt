@@ -1,6 +1,7 @@
 package be.bendardenne.jellyfin.aaos
 
 import android.accounts.AccountManager
+import android.util.Log
 import androidx.annotation.OptIn
 import androidx.concurrent.futures.SuspendToFutureAdapter
 import androidx.media3.common.AudioAttributes
@@ -11,6 +12,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
+import be.bendardenne.jellyfin.aaos.Constants.LOG_MARKER
 import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.ROOT_ID
 import dagger.hilt.android.AndroidEntryPoint
 import org.jellyfin.sdk.Jellyfin
@@ -50,9 +52,7 @@ class JellyfinMusicService : MediaLibraryService() {
                         Player.EVENT_MEDIA_ITEM_TRANSITION
                     )
                 ) {
-                    SuspendToFutureAdapter.launchFuture {
-                        reportPlayback(player)
-                    }
+                    SuspendToFutureAdapter.launchFuture { reportPlayback(player) }
                 }
             }
         })
@@ -74,6 +74,12 @@ class JellyfinMusicService : MediaLibraryService() {
 
     private suspend fun reportPlayback(player: Player) {
         if (player.isPlaying) {
+            val exoPlayer = player as ExoPlayer
+            val format = exoPlayer.audioFormat
+            val formatString = "${format?.containerMimeType} at ${format?.averageBitrate} bps"
+
+            Log.i(LOG_MARKER, "Playing: $formatString")
+            Log.i(LOG_MARKER, "Playing: ${exoPlayer.currentMediaItem?.localConfiguration?.uri}")
             jellyfinApi.playStateApi.onPlaybackStart(
                 player.currentMediaItem!!.mediaId.toUUID()
             )

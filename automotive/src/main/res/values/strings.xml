@@ -19,4 +19,6 @@
     <string name="tracks">Tracks</string>
     <string name="albums">Albums</string>
     <string name="playlists">Playlists</string>
+    <string name="settings">Settings</string>
+    <string name="max_bitrate">Maximum bitrate</string>
 </resources>

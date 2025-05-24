@@ -26,7 +26,7 @@ class JellyfinMediaTree(
     artSize: Int
 ) {
 
-    private val itemFactory = MediaItemFactory(api, artSize)
+    private val itemFactory = MediaItemFactory(context, api, artSize)
 
     private val mediaItems: Cache<String, MediaItem> = CacheBuilder.newBuilder()
         .maximumSize(1000)

@@ -34,9 +34,9 @@ class SignInActivityViewModel @Inject constructor() : ViewModel() {
     private var quickConnectSecret: String = ""
 
     private val _loggedIn = MutableLiveData<Boolean>()
-    private val _quickConnectCode = MutableLiveData<Int>()
-
     val loggedIn: LiveData<Boolean> = _loggedIn
+
+    private val _quickConnectCode = MutableLiveData<Int>()
     val quickConnectCode: LiveData<Int> = _quickConnectCode
 
     suspend fun pingServer(serverUrl: String): Boolean {
@@ -49,7 +49,7 @@ class SignInActivityViewModel @Inject constructor() : ViewModel() {
 
             response.status == 200
         } catch (e: Exception) {
-            Log.i(LOG_MARKER, "Error", e)
+            Log.w(LOG_MARKER, "Error", e)
             false
         }
     }
@@ -74,7 +74,7 @@ class SignInActivityViewModel @Inject constructor() : ViewModel() {
 
             if (response.status == 200) {
                 quickConnectSecret = response.content.secret
-                Log.i(LOG_MARKER, "QuickConnect initiated")
+                Log.d(LOG_MARKER, "QuickConnect initiated")
                 _quickConnectCode.value = Integer.valueOf(response.content.code)
 
                 do {
@@ -91,7 +91,7 @@ class SignInActivityViewModel @Inject constructor() : ViewModel() {
             api.quickConnectApi.getQuickConnectState(quickConnectSecret)
         }
 
-        Log.i(LOG_MARKER, "Checking QuickConnect")
+        Log.d(LOG_MARKER, "Checking QuickConnect")
 
         if (response.status == 200) {
             if (!response.content.authenticated) {

@@ -9,6 +9,7 @@ import androidx.concurrent.futures.SuspendToFutureAdapter
 import androidx.media3.common.HeartRating
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.Player
 import androidx.media3.common.Rating
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.util.Util
@@ -23,6 +24,7 @@ import androidx.media3.session.MediaSession.ConnectionResult
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionError
 import androidx.media3.session.SessionResult
+import androidx.preference.PreferenceManager
 import be.bendardenne.jellyfin.aaos.Constants.LOG_MARKER
 import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.PARENT_KEY
 import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.ROOT_ID
@@ -30,9 +32,12 @@ import be.bendardenne.jellyfin.aaos.signin.SignInActivity
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.extensions.userLibraryApi
 import org.jellyfin.sdk.model.serializer.toUUID
+
 
 @OptIn(UnstableApi::class)
 class JellyfinMediaLibrarySessionCallback(
@@ -45,15 +50,28 @@ class JellyfinMediaLibrarySessionCallback(
         const val LOGIN_COMMAND = "be.bendardenne.jellyfin.aaos.COMMAND.LOGIN"
         const val REPEAT_COMMAND = "be.bendardenne.jellyfin.aaos.COMMAND.REPEAT"
         const val SHUFFLE_COMMAND = "be.bendardenne.jellyfin.aaos.COMMAND.SHUFFLE"
+        const val PLAYLIST_IDS_PREF = "playlistIds"
+        const val PLAYLIST_INDEX_PREF = "playlistIndex"
     }
 
     private lateinit var tree: JellyfinMediaTree;
+    private val playlistSaveListener = object : Player.Listener {
+        override fun onEvents(player: Player, events: Player.Events) {
+            if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
+                PreferenceManager.getDefaultSharedPreferences(service).edit()
+                    .putInt(PLAYLIST_INDEX_PREF, player.currentMediaItemIndex)
+                    .apply()
+            }
+        }
+    }
 
     override fun onConnect(
         session: MediaSession,
         controller: MediaSession.ControllerInfo
     ): ConnectionResult {
         val connectionResult = super.onConnect(session, controller)
+
+        session.player.addListener(playlistSaveListener)
 
         val sessionCommands = connectionResult.availableSessionCommands
             .buildUpon()
@@ -66,6 +84,11 @@ class JellyfinMediaLibrarySessionCallback(
             sessionCommands,
             connectionResult.availablePlayerCommands
         )
+    }
+
+    override fun onDisconnected(session: MediaSession, controller: MediaSession.ControllerInfo) {
+        session.player.removeListener(playlistSaveListener)
+        super.onDisconnected(session, controller)
     }
 
     override fun onGetLibraryRoot(
@@ -174,19 +197,37 @@ class JellyfinMediaLibrarySessionCallback(
             if (isSingleItemWithParent(mediaItems)) {
                 val singleItem = mediaItems[0]
                 val resolvedItems = expandSingleItem(singleItem)
-                return@launchFuture MediaSession.MediaItemsWithStartPosition(
+
+                val mediaItemsWithStartPosition = MediaSession.MediaItemsWithStartPosition(
                     resolvedItems,
                     resolvedItems.indexOfFirst { it.mediaId == singleItem.mediaId },
                     startPositionMs
                 )
+                savePlaylist(resolvedItems)
+                return@launchFuture mediaItemsWithStartPosition
             }
 
-            MediaSession.MediaItemsWithStartPosition(
-                resolveMediaItems(mediaItems),
+            val resolvedItems = resolveMediaItems(mediaItems)
+            val mediaItemsWithStartPosition = MediaSession.MediaItemsWithStartPosition(
+                resolvedItems,
                 startIndex,
                 startPositionMs
             )
+            savePlaylist(resolvedItems)
+            mediaItemsWithStartPosition
         }
+    }
+
+    /**
+     * Saves the playlist to shared preferences, so it can be restored in onPlaybackResumption.
+     */
+    private fun savePlaylist(resolvedItems: List<MediaItem>) {
+        val playlistIDs = resolvedItems.map { it.mediaId }.joinToString(",")
+        Log.d(LOG_MARKER, "Saving playlist $playlistIDs")
+
+        PreferenceManager.getDefaultSharedPreferences(service).edit()
+            .putString(PLAYLIST_IDS_PREF, playlistIDs)
+            .apply()
     }
 
     private suspend fun isSingleItemWithParent(mediaItems: List<MediaItem>): Boolean {
@@ -208,7 +249,6 @@ class JellyfinMediaLibrarySessionCallback(
         val playlist = mutableListOf<MediaItem>()
 
         mediaItems.forEach {
-            Log.i(LOG_MARKER, "Resolving ${it.mediaId}")
             // We need to call getItem to resolve the content: the provided object only has an ID
             val item = tree.getItem(it.mediaId)
             // If the item is an album or playlist, get its children and add them to the playlist.
@@ -252,6 +292,31 @@ class JellyfinMediaLibrarySessionCallback(
         return SuspendToFutureAdapter.launchFuture {
             val results = tree.search(query)
             LibraryResult.ofItemList(results, params)
+        }
+    }
+
+    override fun onPlaybackResumption(
+        mediaSession: MediaSession,
+        controller: MediaSession.ControllerInfo
+    ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
+        return SuspendToFutureAdapter.launchFuture {
+            val prefs = PreferenceManager.getDefaultSharedPreferences(service)
+
+            val mediaItemsToRestore = prefs
+                .getString(PLAYLIST_IDS_PREF, "")
+                ?.split(",")
+                ?.map { async { tree.getItem(it) } }
+                ?.awaitAll() ?: listOf()
+
+            Log.d(LOG_MARKER, "Resuming playback with $mediaItemsToRestore")
+
+            // TODO save positionMs. Is there a convenient way of saving this without polling from
+            //  a background thread?
+            MediaSession.MediaItemsWithStartPosition(
+                mediaItemsToRestore,
+                prefs.getInt(PLAYLIST_INDEX_PREF, 0),
+                0
+            )
         }
     }
 

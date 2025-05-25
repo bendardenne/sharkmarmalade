@@ -218,10 +218,13 @@ class MediaItemFactory(
 
         val bitrate = if (preferenceBitrate == "Direct stream") null else preferenceBitrate.toInt()
 
+        // When a file is not in this list of containers, it will always be transcoded.
+        // This list are containers that I tested.
+        val allowedContainers = listOf("flac", "mp3", "m4a", "aac", "ogg")
         val audioStream =
             jellyfinApi.universalAudioApi.getUniversalAudioStreamUrl(
                 item.id,
-                container = listOf("flac", "mp3", "aac", "m4a"),
+                container = allowedContainers,
                 audioBitRate = bitrate,
                 maxStreamingBitrate = bitrate,
                 transcodingContainer = "mp3",

@@ -29,13 +29,17 @@
     <application
         android:name=".SharkMarmaladeApplication"
         android:allowBackup="true"
-        android:usesCleartextTraffic="true"
         android:appCategory="audio"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/SharkMarmalade"
+        android:usesCleartextTraffic="true"
         tools:remove="android:appComponentFactory">
+
+        <meta-data
+            android:name="com.android.automotive"
+            android:resource="@xml/automotive_app_desc" />
 
         <meta-data
             android:name="androidx.car.app.TintableAttributionIcon"
@@ -49,18 +53,19 @@
             </intent-filter>
         </activity>
 
-        <activity android:name=".settings.SettingsActivity"
+        <activity
+            android:name=".settings.SettingsActivity"
             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.APPLICATION_PREFERENCES"/>
+                <action android:name="android.intent.action.APPLICATION_PREFERENCES" />
             </intent-filter>
         </activity>
 
         <service
             android:name=".JellyfinMusicService"
             android:exported="true"
-            android:icon="@mipmap/ic_launcher"
-            android:foregroundServiceType="mediaPlayback">
+            android:foregroundServiceType="mediaPlayback"
+            android:icon="@mipmap/ic_launcher">
             <intent-filter>
                 <action android:name="androidx.media3.session.MediaLibraryService" />
                 <action android:name="android.media.browse.MediaBrowserService" />

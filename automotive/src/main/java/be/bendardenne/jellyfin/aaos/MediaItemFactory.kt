@@ -218,6 +218,13 @@ class MediaItemFactory(
 
         val bitrate = if (preferenceBitrate == "Direct stream") null else preferenceBitrate.toInt()
 
+        // Nice-to-have: it would be nice to force transcoding when the codec is not supported
+        //  (eg ALAC).
+        //  This would require that we know the codec upfront, but we currently don't have access to
+        //  it because our BaseItemDtos are mostly fecthed via getItemChildren, which queries the
+        //  /Items endpoint, which does not include the codec (mediaSources/mediaStreams) in its
+        //  response.
+
         // When a file is not in this list of containers, it will always be transcoded.
         // This list are containers that I tested.
         val allowedContainers = listOf("flac", "mp3", "m4a", "aac", "ogg")

@@ -42,9 +42,8 @@ class JellyfinMediaTree(
                 FAVOURITES -> itemFactory.favourites()
                 PLAYLISTS -> itemFactory.playlists()
                 else -> {
-                    val response = api.itemsApi.getItems(ids = listOf(id.toUUID()))
-                    val baseItemDto = response.content.items[0]
-                    itemFactory.create(baseItemDto)
+                    val response = api.userLibraryApi.getItem(id.toUUID())
+                    itemFactory.create(response.content)
                 }
             }
 

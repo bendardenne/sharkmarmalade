@@ -153,7 +153,7 @@ class MediaItemFactory(
             .build()
 
         return MediaItem.Builder()
-            .setMediaId(item.toString())
+            .setMediaId(item.id.toString())
             .setMediaMetadata(metadata)
             .build()
     }
@@ -243,7 +243,9 @@ class MediaItemFactory(
             extras.putString(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_GROUP_TITLE, group)
         }
 
-        extras.putString(PARENT_KEY, parent)
+        if (parent != null) {
+            extras.putString(PARENT_KEY, parent)
+        }
 
         val metadata = MediaMetadata.Builder()
             .setTitle(item.name)

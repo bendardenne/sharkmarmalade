@@ -13,6 +13,7 @@ Shark Marmalade is a third-party music client for Jellyfin servers, targetting A
 Please feel free to add to this list if you manage to use the app in your car! 
 
 - Polestar 2
+- Polestar 3
 - Volvo XC60
 - Volvo XC40
 - Volvo EX30

@@ -3,6 +3,7 @@ package be.bendardenne.jellyfin.aaos
 import android.content.Context
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata.MEDIA_TYPE_ARTIST
+import androidx.media3.common.MediaMetadata.MEDIA_TYPE_PLAYLIST
 import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.FAVOURITES
 import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.LATEST_ALBUMS
 import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.PLAYLISTS
@@ -23,10 +24,8 @@ import org.jellyfin.sdk.model.serializer.toUUID
 class JellyfinMediaTree(
     private val context: Context,
     private val api: ApiClient,
-    artSize: Int
+    private val itemFactory: MediaItemFactory
 ) {
-
-    private val itemFactory = MediaItemFactory(context, api, artSize)
 
     private val mediaItems: Cache<String, MediaItem> = CacheBuilder.newBuilder()
         .maximumSize(1000)
@@ -115,16 +114,23 @@ class JellyfinMediaTree(
     }
 
     private suspend fun getItemChildren(id: String): List<MediaItem> {
-        if (mediaItems.getIfPresent(id)?.mediaMetadata?.mediaType == MEDIA_TYPE_ARTIST) {
+        if (getItem(id).mediaMetadata.mediaType == MEDIA_TYPE_ARTIST) {
             return getArtistAlbums(id)
         }
 
+        var sortBy = listOf(
+            ItemSortBy.PARENT_INDEX_NUMBER,
+            ItemSortBy.INDEX_NUMBER,
+            ItemSortBy.SORT_NAME
+        );
+
+        // For playlists, we should respect the default order (user's track order)
+        if (getItem(id).mediaMetadata.mediaType == MEDIA_TYPE_PLAYLIST) {
+            sortBy = listOf(ItemSortBy.DEFAULT)
+        }
+
         val response = api.itemsApi.getItems(
-            sortBy = listOf(
-                ItemSortBy.PARENT_INDEX_NUMBER,
-                ItemSortBy.INDEX_NUMBER,
-                ItemSortBy.SORT_NAME
-            ),
+            sortBy = sortBy,
             parentId = id.toUUID()
         )
 

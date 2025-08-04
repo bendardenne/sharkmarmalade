@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.concurrent.futures.SuspendToFutureAdapter
+import androidx.core.content.edit
 import androidx.media3.common.HeartRating
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -58,9 +59,11 @@ class JellyfinMediaLibrarySessionCallback(
     private val playlistSaveListener = object : Player.Listener {
         override fun onEvents(player: Player, events: Player.Events) {
             if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
-                PreferenceManager.getDefaultSharedPreferences(service).edit()
-                    .putInt(PLAYLIST_INDEX_PREF, player.currentMediaItemIndex)
-                    .apply()
+                // Persist the current index of the queue in the preferences.
+                // This is restore in onPlaybackResumption
+                PreferenceManager.getDefaultSharedPreferences(service).edit {
+                    putInt(PLAYLIST_INDEX_PREF, player.currentMediaItemIndex)
+                }
             }
         }
     }
@@ -101,7 +104,9 @@ class JellyfinMediaLibrarySessionCallback(
         if (!::tree.isInitialized) {
             val artSize = params?.extras?.getInt(EXTRAS_KEY_MEDIA_ART_SIZE_PIXELS) ?: 512
             Log.d(LOG_MARKER, "Art size hint from system: $artSize")
-            tree = JellyfinMediaTree(service, jellyfinApi, artSize)
+
+            val itemFactory = MediaItemFactory(service, jellyfinApi, artSize)
+            tree = JellyfinMediaTree(service, jellyfinApi, itemFactory)
         }
 
         return SuspendToFutureAdapter.launchFuture {
@@ -193,7 +198,6 @@ class JellyfinMediaLibrarySessionCallback(
     ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
         Log.i(LOG_MARKER, "onSetMediaItems $mediaItems")
         return SuspendToFutureAdapter.launchFuture {
-            // When setting a single element in the playlist, automatically add its siblings too.
             if (isSingleItemWithParent(mediaItems)) {
                 val singleItem = mediaItems[0]
                 val resolvedItems = expandSingleItem(singleItem)
@@ -225,9 +229,9 @@ class JellyfinMediaLibrarySessionCallback(
         val playlistIDs = resolvedItems.map { it.mediaId }.joinToString(",")
         Log.d(LOG_MARKER, "Saving playlist $playlistIDs")
 
-        PreferenceManager.getDefaultSharedPreferences(service).edit()
-            .putString(PLAYLIST_IDS_PREF, playlistIDs)
-            .apply()
+        PreferenceManager.getDefaultSharedPreferences(service).edit {
+            putString(PLAYLIST_IDS_PREF, playlistIDs)
+        }
     }
 
     private suspend fun isSingleItemWithParent(mediaItems: List<MediaItem>): Boolean {
@@ -249,10 +253,10 @@ class JellyfinMediaLibrarySessionCallback(
         val playlist = mutableListOf<MediaItem>()
 
         mediaItems.forEach {
-            // We need to call getItem to resolve the content: the provided object only has an ID
+            // We need to call getItem to resolve the full item: the provided MediaItem only has an ID.
             val item = tree.getItem(it.mediaId)
             // If the item is an album or playlist, get its children and add them to the playlist.
-            // Albums are playlists are "immediately playable" items, that actually load their
+            // Albums and playlists are "immediately playable" items, that actually load their
             // children (tracks).
             if (item.mediaMetadata.mediaType == MediaMetadata.MEDIA_TYPE_ALBUM ||
                 item.mediaMetadata.mediaType == MediaMetadata.MEDIA_TYPE_PLAYLIST

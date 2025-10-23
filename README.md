@@ -1,6 +1,6 @@
 # Shark Marmalade
 
-![Shark Marmalade UI in a Polestar 2](https://www.bendardenne.be/img/sharkmarmalade.png)
+![Shark Marmalade UI in a Polestar 2](https://www.bendardenne.be/img/sharkmarmelade.png)
 
 Shark Marmalade is a third-party music client for Jellyfin servers, targetting Android Automotive (AAOS).
 

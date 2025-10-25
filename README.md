@@ -14,6 +14,7 @@ Please feel free to add to this list if you manage to use the app in your car!
 
 - Polestar 2
 - Polestar 3
+- Volvo XC90
 - Volvo XC60
 - Volvo XC40
 - Volvo EX30

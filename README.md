@@ -1,6 +1,6 @@
 # Shark Marmalade
 
-![Shark Marmalade UI in a Polestar 2](https://www.bendardenne.be/img/sharkmarmalade.png)
+![Shark Marmalade UI in a Polestar 2](https://www.bendardenne.be/img/sharkmarmelade.png)
 
 Shark Marmalade is a third-party music client for Jellyfin servers, targetting Android Automotive (AAOS).
 
@@ -14,7 +14,9 @@ Please feel free to add to this list if you manage to use the app in your car!
 
 - Polestar 2
 - Polestar 3
+- Volvo XC90
 - Volvo XC60
 - Volvo XC40
 - Volvo EX30
+- Chevy Equinox EV
 - Renault / Nissan  ??  OpenR Link

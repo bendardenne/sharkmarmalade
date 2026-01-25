@@ -10,7 +10,6 @@ import androidx.core.content.edit
 import androidx.media3.common.HeartRating
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
-import androidx.media3.common.Player
 import androidx.media3.common.Rating
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.util.Util
@@ -51,30 +50,21 @@ class JellyfinMediaLibrarySessionCallback(
         const val LOGIN_COMMAND = "be.bendardenne.jellyfin.aaos.COMMAND.LOGIN"
         const val REPEAT_COMMAND = "be.bendardenne.jellyfin.aaos.COMMAND.REPEAT"
         const val SHUFFLE_COMMAND = "be.bendardenne.jellyfin.aaos.COMMAND.SHUFFLE"
+
         const val PLAYLIST_IDS_PREF = "playlistIds"
         const val PLAYLIST_INDEX_PREF = "playlistIndex"
+        const val PLAYLIST_TRACK_POSITON_MS_PREF = "playlistTrackPositionMs"
     }
 
     private lateinit var tree: JellyfinMediaTree;
-    private val playlistSaveListener = object : Player.Listener {
-        override fun onEvents(player: Player, events: Player.Events) {
-            if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
-                // Persist the current index of the queue in the preferences.
-                // This is restore in onPlaybackResumption
-                PreferenceManager.getDefaultSharedPreferences(service).edit {
-                    putInt(PLAYLIST_INDEX_PREF, player.currentMediaItemIndex)
-                }
-            }
-        }
-    }
 
     override fun onConnect(
         session: MediaSession,
         controller: MediaSession.ControllerInfo
     ): ConnectionResult {
-        val connectionResult = super.onConnect(session, controller)
+        Log.i(LOG_MARKER, "onConnect")
 
-        session.player.addListener(playlistSaveListener)
+        val connectionResult = super.onConnect(session, controller)
 
         val sessionCommands = connectionResult.availableSessionCommands
             .buildUpon()
@@ -87,11 +77,6 @@ class JellyfinMediaLibrarySessionCallback(
             sessionCommands,
             connectionResult.availablePlayerCommands
         )
-    }
-
-    override fun onDisconnected(session: MediaSession, controller: MediaSession.ControllerInfo) {
-        session.player.removeListener(playlistSaveListener)
-        super.onDisconnected(session, controller)
     }
 
     override fun onGetLibraryRoot(
@@ -314,12 +299,10 @@ class JellyfinMediaLibrarySessionCallback(
 
             Log.d(LOG_MARKER, "Resuming playback with $mediaItemsToRestore")
 
-            // TODO save positionMs. Is there a convenient way of saving this without polling from
-            //  a background thread?
             MediaSession.MediaItemsWithStartPosition(
                 mediaItemsToRestore,
                 prefs.getInt(PLAYLIST_INDEX_PREF, 0),
-                0
+                prefs.getLong(PLAYLIST_TRACK_POSITON_MS_PREF, 0),
             )
         }
     }

@@ -13,8 +13,8 @@ android {
         applicationId = "be.bendardenne.jellyfin.aaos"
         minSdk = 29
         targetSdk = 34
-        versionCode = 28
-        versionName = "1.2"
+        versionCode = 29
+        versionName = "1.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

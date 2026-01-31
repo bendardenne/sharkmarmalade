@@ -15,11 +15,14 @@ import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.extensions.artistsApi
 import org.jellyfin.sdk.api.client.extensions.itemsApi
 import org.jellyfin.sdk.api.client.extensions.userLibraryApi
+import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.ItemFilter
 import org.jellyfin.sdk.model.api.ItemSortBy
 import org.jellyfin.sdk.model.api.SortOrder
 import org.jellyfin.sdk.model.serializer.toUUID
+
+private const val MAX_ITEMS = 120
 
 class JellyfinMediaTree(
     private val context: Context,
@@ -63,7 +66,7 @@ class JellyfinMediaTree(
 
             LATEST_ALBUMS -> getLatestAlbums()
             RANDOM_ALBUMS -> getRandomAlbums()
-            FAVOURITES -> getFavouriteTracks()
+            FAVOURITES -> getFavourite()
             PLAYLISTS -> getPlaylists()
             else -> getItemChildren(id)
         }
@@ -72,7 +75,7 @@ class JellyfinMediaTree(
     private suspend fun getLatestAlbums(): List<MediaItem> {
         val response = api.userLibraryApi.getLatestMedia(
             includeItemTypes = listOf(BaseItemKind.MUSIC_ALBUM),
-            limit = 24
+            limit = MAX_ITEMS
         )
 
         return response.content.map {
@@ -87,7 +90,7 @@ class JellyfinMediaTree(
             includeItemTypes = listOf(BaseItemKind.MUSIC_ALBUM),
             recursive = true,
             sortBy = listOf(ItemSortBy.RANDOM),
-            limit = 24
+            limit = MAX_ITEMS
         )
 
         return response.content.items.map {
@@ -103,7 +106,7 @@ class JellyfinMediaTree(
             recursive = true,
             sortOrder = listOf(SortOrder.DESCENDING),
             sortBy = listOf(ItemSortBy.DATE_CREATED),
-            limit = 24
+            limit = MAX_ITEMS
         )
 
         return response.content.items.map {
@@ -160,19 +163,37 @@ class JellyfinMediaTree(
         }
     }
 
-    private suspend fun getFavouriteTracks(): List<MediaItem> {
+    private suspend fun getFavourite(): List<MediaItem> {
         val response = api.itemsApi.getItems(
             recursive = true,
             filters = listOf(ItemFilter.IS_FAVORITE),
-            includeItemTypes = listOf(BaseItemKind.AUDIO)
+            includeItemTypes = listOf(
+                BaseItemKind.AUDIO,
+                BaseItemKind.MUSIC_ALBUM,
+                BaseItemKind.MUSIC_ARTIST
+            )
         )
 
         return response.content.items.map {
-            val item = itemFactory.create(it, parent = FAVOURITES)
+            val item = itemFactory.create(
+                it,
+                groupForItem(it),
+                parent = FAVOURITES
+            )
             mediaItems.put(item.mediaId, item)
             item
         }
     }
+
+    private fun groupForItem(dto: BaseItemDto): String = (
+            if (dto.type == BaseItemKind.MUSIC_ALBUM)
+                context.getString(R.string.albums)
+            else if (dto.type == BaseItemKind.MUSIC_ARTIST)
+                context.getString(R.string.artists)
+            else
+                context.getString(R.string.tracks)
+            )
+
 
     suspend fun search(query: String): List<MediaItem> {
         val items = mutableListOf<MediaItem>()

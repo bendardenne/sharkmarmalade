@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.os.Bundle
 import androidx.annotation.OptIn
+import androidx.core.net.toUri
 import androidx.media3.common.HeartRating
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -72,7 +73,7 @@ class MediaItemFactory(
             .setTitle(label)
             .setIsBrowsable(true)
             .setIsPlayable(false)
-            .setArtworkUri(Uri.parse("android.resource://be.bendardenne.jellyfin.aaos/drawable/$icon"))
+            .setArtworkUri("android.resource://be.bendardenne.jellyfin.aaos/drawable/$icon".toUri())
             .setExtras(extras)
             .setMediaType(MediaMetadata.MEDIA_TYPE_FOLDER_ALBUMS)
             .build()
@@ -94,7 +95,7 @@ class MediaItemFactory(
             .setTitle("Favourites")
             .setIsBrowsable(true)
             .setIsPlayable(false)
-            .setArtworkUri(Uri.parse("android.resource://be.bendardenne.jellyfin.aaos/drawable/star_filled"))
+            .setArtworkUri("android.resource://be.bendardenne.jellyfin.aaos/drawable/star_filled".toUri())
             .setExtras(extras)
             .setMediaType(MediaMetadata.MEDIA_TYPE_FOLDER_MIXED)
             .build()
@@ -116,7 +117,7 @@ class MediaItemFactory(
             .setTitle("Playlists")
             .setIsBrowsable(true)
             .setIsPlayable(false)
-            .setArtworkUri(Uri.parse("android.resource://be.bendardenne.jellyfin.aaos/drawable/playlists"))
+            .setArtworkUri("android.resource://be.bendardenne.jellyfin.aaos/drawable/playlists".toUri())
             .setExtras(extras)
             .setMediaType(MediaMetadata.MEDIA_TYPE_FOLDER_PLAYLISTS)
             .build()
@@ -253,7 +254,7 @@ class MediaItemFactory(
             .setIsBrowsable(false)
             .setIsPlayable(true)
             .setArtworkUri(artUrl)
-            .setUserRating(HeartRating(item.userData?.isFavorite ?: false))
+            .setUserRating(HeartRating(item.userData?.isFavorite == true))
             .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
             .setDurationMs(item.runTimeTicks?.div(10_000))
             .setExtras(extras)
@@ -274,7 +275,7 @@ class MediaItemFactory(
             maxWidth = artSize,
             maxHeight = artSize,
         )
-        val localUrl = AlbumArtContentProvider.mapUri(Uri.parse(artUrl))
+        val localUrl = AlbumArtContentProvider.mapUri(artUrl.toUri())
         return localUrl
     }
 

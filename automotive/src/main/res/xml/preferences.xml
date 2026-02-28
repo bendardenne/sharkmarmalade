@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
 
-
     <PreferenceCategory android:title="@string/library">
         <DropDownPreference
             android:key="album_behaviour"
@@ -25,6 +24,9 @@
     </PreferenceCategory>
 
     <PreferenceCategory android:title="@string/about">
+        <Preference
+            android:key="upload_logs"
+            android:title="@string/upload_logs" />
         <Preference
             android:key="version"
             android:title="@string/app_version" />

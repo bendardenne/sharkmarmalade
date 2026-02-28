@@ -13,7 +13,6 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import be.bendardenne.jellyfin.aaos.R
@@ -52,20 +51,18 @@ class UsernamePasswordSignInFragment : Fragment() {
 
         viewModel.startQuickConnect(server)
 
-        viewModel.quickConnectCode.observe(viewLifecycleOwner, object : Observer<Int> {
-            override fun onChanged(value: Int) {
-                quickConnectProgressBar.visibility = View.GONE
-                quickConnectCode.visibility = View.VISIBLE
+        viewModel.quickConnectCode.observe(viewLifecycleOwner) { value ->
+            quickConnectProgressBar.visibility = View.GONE
+            quickConnectCode.visibility = View.VISIBLE
 
-                if( value == -1 ){
-                    quickConnectCode.text = context?.getText(R.string.unavailable)
-                } else {
-                    val code = value.toString()
-                    val formattedCode = code.substring(0, 3) + " " + code.substring(3)
-                    quickConnectCode.text = formattedCode
-                }
+            if (value == -1) {
+                quickConnectCode.text = context?.getText(R.string.unavailable)
+            } else {
+                val code = value.toString()
+                val formattedCode = code.take(3) + " " + code.substring(3)
+                quickConnectCode.text = formattedCode
             }
-        })
+        }
 
         loginButton.setOnClickListener {
             val username = usernameInput.text

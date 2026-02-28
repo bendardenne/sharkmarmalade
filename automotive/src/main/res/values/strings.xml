@@ -26,4 +26,6 @@
     <string name="library">Library</string>
     <string name="app_version">App version</string>
     <string name="album_behaviour">Album behaviour</string>
+    <string name="upload_logs">Upload logs to Jellyfin server</string>
+    <string name="log_uploaded">Logfile uploaded to server</string>
 </resources>

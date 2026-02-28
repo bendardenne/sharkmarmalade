@@ -32,9 +32,7 @@ import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.LOG_MARKER
 import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.PREF_ALBUM_BEHAVIOUR
 import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.PREF_BITRATE
 import be.bendardenne.jellyfin.aaos.signin.SignInActivity
-import com.google.common.collect.ArrayListMultimap
 import com.google.common.collect.ImmutableList
-import com.google.common.collect.Multimap
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.async
@@ -63,19 +61,21 @@ class JellyfinMediaLibrarySessionCallback(
 
     private lateinit var tree: JellyfinMediaTree;
 
-    private val subscriptions: Multimap<MediaLibraryService.MediaLibrarySession, String> =
-        ArrayListMultimap.create()
+    private val subscriptions:
+            MutableMap<MediaLibraryService.MediaLibrarySession, MutableSet<String>> = mutableMapOf()
 
     // Listener must be kept in a field to prevent GC (weak referenced by SharedPref.)
     private val prefListener: SharedPreferences.OnSharedPreferenceChangeListener =
         SharedPreferences.OnSharedPreferenceChangeListener { p, key ->
             if (key == PREF_ALBUM_BEHAVIOUR || key == PREF_BITRATE) {
+                Log.i(LOG_MARKER, "Preferences invalidated")
+
                 // Clear the item cache on any setting impacting the media items.
                 tree.evictCache()
                 // And force Sessions to refetch the new items.
-                subscriptions.keys().forEach { session ->
-                    subscriptions.get(session).forEach { item ->
-                        session.notifyChildrenChanged(item, Int.MAX_VALUE, null)
+                subscriptions.forEach { session ->
+                    subscriptions[session.key]!!.forEach { item ->
+                        session.key.notifyChildrenChanged(item, Int.MAX_VALUE, null)
                     }
                 }
             }
@@ -112,7 +112,8 @@ class JellyfinMediaLibrarySessionCallback(
         parentId: String,
         params: MediaLibraryService.LibraryParams?
     ): ListenableFuture<LibraryResult<Void>> {
-        subscriptions.put(session, parentId)
+        Log.i(LOG_MARKER, "OnSubscribe $session - $parentId")
+        subscriptions.computeIfAbsent(session) { mutableSetOf() }.add(parentId)
         return super.onSubscribe(session, browser, parentId, params)
     }
 
@@ -121,7 +122,8 @@ class JellyfinMediaLibrarySessionCallback(
         browser: MediaSession.ControllerInfo,
         parentId: String
     ): ListenableFuture<LibraryResult<Void>> {
-        subscriptions.remove(session, parentId)
+        Log.i(LOG_MARKER, "OnUnsubscribe $session - $parentId")
+        subscriptions[session]?.remove(parentId)
         return super.onUnsubscribe(session, browser, parentId)
     }
 

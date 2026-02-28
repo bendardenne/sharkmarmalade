@@ -71,11 +71,11 @@ class JellyfinMusicService : MediaLibraryService() {
         jellyfinApi = jellyfin.createApi()
         mediaSourceFactory = DefaultMediaSourceFactory(this)
 
-
         val player = ExoPlayer.Builder(this)
             .setAudioAttributes(AudioAttributes.DEFAULT, true)
             .setMediaSourceFactory(mediaSourceFactory)
             .build()
+
         player.addListener(playerListener)
 
         // Start in no repeat & no shuffle by default
@@ -129,18 +129,7 @@ class JellyfinMusicService : MediaLibraryService() {
     }
 
     fun onLogin() {
-        jellyfinApi.update(
-            baseUrl = accountManager.server,
-            accessToken = accountManager.token
-        )
-
-        val headers = mapOf(
-            "Authorization" to "MediaBrowser Client=\"${jellyfinApi.clientInfo.name}\", " +
-                    "Device=\"${jellyfinApi.deviceInfo.name}\", " +
-                    "DeviceId=\"${jellyfinApi.deviceInfo.id}\", " +
-                    "Version=\"${jellyfinApi.clientInfo.version}\", " +
-                    "Token=\"${jellyfinApi.accessToken}\""
-        )
+        val headers = jellyfinApi.auth(accountManager)
 
         val authedFactory = DefaultHttpDataSource.Factory().setDefaultRequestProperties(headers)
         mediaSourceFactory.setDataSourceFactory(authedFactory)

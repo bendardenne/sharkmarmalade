@@ -21,4 +21,9 @@
     <string name="playlists">Playlists</string>
     <string name="settings">Settings</string>
     <string name="max_bitrate">Maximum bitrate</string>
+    <string name="playback">Playback</string>
+    <string name="about">About</string>
+    <string name="library">Library</string>
+    <string name="app_version">App version</string>
+    <string name="album_behaviour">Album behaviour</string>
 </resources>

@@ -7,7 +7,7 @@ import android.database.Cursor
 import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.util.Log
-import be.bendardenne.jellyfin.aaos.Constants.LOG_MARKER
+import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.LOG_MARKER
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okio.buffer

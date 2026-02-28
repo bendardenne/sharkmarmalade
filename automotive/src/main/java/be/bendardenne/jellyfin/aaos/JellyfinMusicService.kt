@@ -17,10 +17,10 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
 import androidx.preference.PreferenceManager
-import be.bendardenne.jellyfin.aaos.Constants.LOG_MARKER
 import be.bendardenne.jellyfin.aaos.JellyfinMediaLibrarySessionCallback.Companion.PLAYLIST_INDEX_PREF
 import be.bendardenne.jellyfin.aaos.JellyfinMediaLibrarySessionCallback.Companion.PLAYLIST_TRACK_POSITON_MS_PREF
 import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.ROOT_ID
+import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.LOG_MARKER
 import dagger.hilt.android.AndroidEntryPoint
 import org.jellyfin.sdk.Jellyfin
 import org.jellyfin.sdk.api.client.ApiClient
@@ -46,8 +46,21 @@ class JellyfinMusicService : MediaLibraryService() {
     private var currentTrack: MediaItem? = null;
 
     private lateinit var playbackPoll: Runnable;
-    private lateinit var playerListener: Player.Listener;
 
+
+    private val playerListener = object : Player.Listener {
+        override fun onEvents(player: Player, events: Player.Events) {
+            if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
+                // Persist the current index of the queue in the preferences.
+                // This is restored in onPlaybackResumption
+                PreferenceManager.getDefaultSharedPreferences(this@JellyfinMusicService).edit {
+                    putInt(PLAYLIST_INDEX_PREF, player.currentMediaItemIndex)
+                }
+
+                SuspendToFutureAdapter.launchFuture { reportPlayback(player) }
+            }
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -58,20 +71,6 @@ class JellyfinMusicService : MediaLibraryService() {
         jellyfinApi = jellyfin.createApi()
         mediaSourceFactory = DefaultMediaSourceFactory(this)
 
-        playerListener = object : Player.Listener {
-            override fun onEvents(player: Player, events: Player.Events) {
-                if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
-                    // Persist the current index of the queue in the preferences.
-                    // This is restored in onPlaybackResumption
-                    PreferenceManager.getDefaultSharedPreferences(this@JellyfinMusicService).edit {
-                        putInt(PLAYLIST_INDEX_PREF, player.currentMediaItemIndex)
-                    }
-
-                    SuspendToFutureAdapter.launchFuture { reportPlayback(player) }
-                }
-            }
-        }
-
 
         val player = ExoPlayer.Builder(this)
             .setAudioAttributes(AudioAttributes.DEFAULT, true)
@@ -79,15 +78,29 @@ class JellyfinMusicService : MediaLibraryService() {
             .build()
         player.addListener(playerListener)
 
-        // Start in Repeat all & no shuffle by default
-        player.repeatMode = Player.REPEAT_MODE_ALL
+        // Start in no repeat & no shuffle by default
+        player.repeatMode = Player.REPEAT_MODE_OFF
         player.shuffleModeEnabled = false
+        // TODO  double check if we can't get events for this
+        // https://proandroiddev.com/mastering-playback-state-with-exo-player-977016aa5003
+        pollForPlaybackStatus(player)
 
+        callback = JellyfinMediaLibrarySessionCallback(this, accountManager, jellyfinApi)
+
+        mediaLibrarySession = MediaLibrarySession.Builder(this, player, callback)
+            .setMediaButtonPreferences(CommandButtons.createButtons(player))
+            .build()
+
+        if (accountManager.isAuthenticated) {
+            onLogin()
+        }
+    }
+
+    private fun pollForPlaybackStatus(player: ExoPlayer) {
         // Repeatedly poll the player for current elapsed playback time
         // We need this to report elapsed time on playback stop, which is needed for scrobbling.
         playbackPoll = Runnable {
             if (player.isPlaying) {
-                Log.i(LOG_MARKER, "Playback ${player.currentPosition}")
                 currentPlaybackTime = player.currentPosition
                 currentTrack = player.currentMediaItem
 
@@ -99,16 +112,6 @@ class JellyfinMusicService : MediaLibraryService() {
             handler.postDelayed(playbackPoll, 1000)
         }
         handler.postDelayed(playbackPoll, 1000)
-
-        callback = JellyfinMediaLibrarySessionCallback(this, accountManager, jellyfinApi)
-
-        mediaLibrarySession = MediaLibrarySession.Builder(this, player, callback)
-            .setMediaButtonPreferences(CommandButtons.createButtons(player))
-            .build()
-
-        if (accountManager.isAuthenticated) {
-            onLogin()
-        }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession {
@@ -139,8 +142,7 @@ class JellyfinMusicService : MediaLibraryService() {
                     "Token=\"${jellyfinApi.accessToken}\""
         )
 
-        val authedFactory =
-            DefaultHttpDataSource.Factory().setDefaultRequestProperties(headers)
+        val authedFactory = DefaultHttpDataSource.Factory().setDefaultRequestProperties(headers)
         mediaSourceFactory.setDataSourceFactory(authedFactory)
 
         // Trigger a refresh upon login.
@@ -172,5 +174,4 @@ class JellyfinMusicService : MediaLibraryService() {
             )
         }
     }
-
 }

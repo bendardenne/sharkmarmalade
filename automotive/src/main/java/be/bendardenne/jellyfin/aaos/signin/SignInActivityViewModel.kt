@@ -5,8 +5,8 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import be.bendardenne.jellyfin.aaos.Constants.LOG_MARKER
 import be.bendardenne.jellyfin.aaos.JellyfinAccountManager
+import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.LOG_MARKER
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay

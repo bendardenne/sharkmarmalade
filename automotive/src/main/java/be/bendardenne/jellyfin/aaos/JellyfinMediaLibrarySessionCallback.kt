@@ -2,6 +2,7 @@ package be.bendardenne.jellyfin.aaos
 
 import android.app.PendingIntent
 import android.content.Intent
+import android.content.SharedPreferences
 import android.os.Bundle
 import android.util.Log
 import androidx.annotation.OptIn
@@ -25,11 +26,15 @@ import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionError
 import androidx.media3.session.SessionResult
 import androidx.preference.PreferenceManager
-import be.bendardenne.jellyfin.aaos.Constants.LOG_MARKER
 import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.PARENT_KEY
 import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.ROOT_ID
+import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.LOG_MARKER
+import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.PREF_ALBUM_BEHAVIOUR
+import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.PREF_BITRATE
 import be.bendardenne.jellyfin.aaos.signin.SignInActivity
+import com.google.common.collect.ArrayListMultimap
 import com.google.common.collect.ImmutableList
+import com.google.common.collect.Multimap
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.async
@@ -58,12 +63,34 @@ class JellyfinMediaLibrarySessionCallback(
 
     private lateinit var tree: JellyfinMediaTree;
 
+    private val subscriptions: Multimap<MediaLibraryService.MediaLibrarySession, String> =
+        ArrayListMultimap.create()
+
+    // Listener must be kept in a field to prevent GC (weak referenced by SharedPref.)
+    private val prefListener: SharedPreferences.OnSharedPreferenceChangeListener =
+        SharedPreferences.OnSharedPreferenceChangeListener { p, key ->
+            if (key == PREF_ALBUM_BEHAVIOUR || key == PREF_BITRATE) {
+                // Clear the item cache on any setting impacting the media items.
+                tree.evictCache()
+                // And force Sessions to refetch the new items.
+                subscriptions.keys().forEach { session ->
+                    subscriptions.get(session).forEach { item ->
+                        session.notifyChildrenChanged(item, Int.MAX_VALUE, null)
+                    }
+                }
+            }
+        }
+
+    init {
+        val sharedPreferences = PreferenceManager.getDefaultSharedPreferences(service)
+        sharedPreferences.registerOnSharedPreferenceChangeListener(prefListener)
+    }
+
     override fun onConnect(
         session: MediaSession,
         controller: MediaSession.ControllerInfo
     ): ConnectionResult {
         Log.i(LOG_MARKER, "onConnect")
-
         val connectionResult = super.onConnect(session, controller)
 
         val sessionCommands = connectionResult.availableSessionCommands
@@ -77,6 +104,25 @@ class JellyfinMediaLibrarySessionCallback(
             sessionCommands,
             connectionResult.availablePlayerCommands
         )
+    }
+
+    override fun onSubscribe(
+        session: MediaLibraryService.MediaLibrarySession,
+        browser: MediaSession.ControllerInfo,
+        parentId: String,
+        params: MediaLibraryService.LibraryParams?
+    ): ListenableFuture<LibraryResult<Void>> {
+        subscriptions.put(session, parentId)
+        return super.onSubscribe(session, browser, parentId, params)
+    }
+
+    override fun onUnsubscribe(
+        session: MediaLibraryService.MediaLibrarySession,
+        browser: MediaSession.ControllerInfo,
+        parentId: String
+    ): ListenableFuture<LibraryResult<Void>> {
+        subscriptions.remove(session, parentId)
+        return super.onUnsubscribe(session, browser, parentId)
     }
 
     override fun onGetLibraryRoot(
@@ -211,7 +257,7 @@ class JellyfinMediaLibrarySessionCallback(
      * Saves the playlist to shared preferences, so it can be restored in onPlaybackResumption.
      */
     private fun savePlaylist(resolvedItems: List<MediaItem>) {
-        val playlistIDs = resolvedItems.map { it.mediaId }.joinToString(",")
+        val playlistIDs = resolvedItems.joinToString(",") { it.mediaId }
         Log.d(LOG_MARKER, "Saving playlist $playlistIDs")
 
         PreferenceManager.getDefaultSharedPreferences(service).edit {

@@ -251,4 +251,11 @@ class JellyfinMediaTree(
 
         return items
     }
+
+    /**
+     * Clears the cached MediaItems.
+     */
+    fun evictCache() {
+        mediaItems.invalidateAll()
+    }
 }

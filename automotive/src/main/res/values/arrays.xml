@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string-array name="bitrate" >
+    <string-array name="bitrate">
         <item>Direct stream</item>
         <item>320 kbps</item>
         <item>256 kbps</item>
@@ -9,12 +9,17 @@
         <item>128 kbps</item>
     </string-array>
 
-    <string-array name="bitrateValues" >
+    <string-array name="bitrateValues">
         <item>Direct stream</item>
         <item>320000</item>
         <item>256000</item>
         <item>192000</item>
         <item>160000</item>
         <item>128000</item>
+    </string-array>
+
+    <string-array name="albumBehaviour">
+        <item>Expand</item>
+        <item>Play</item>
     </string-array>
 </resources>

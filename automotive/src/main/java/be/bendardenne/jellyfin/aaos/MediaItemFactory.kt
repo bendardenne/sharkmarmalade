@@ -11,6 +11,11 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaConstants
 import androidx.preference.PreferenceManager
+import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.DIRECT_STREAM
+import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.EXPAND
+import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.PLAY
+import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.PREF_ALBUM_BEHAVIOUR
+import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.PREF_BITRATE
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.extensions.universalAudioApi
 import org.jellyfin.sdk.api.operations.ImageApi
@@ -165,11 +170,15 @@ class MediaItemFactory(
             extras.putString(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_GROUP_TITLE, group)
         }
 
+        val preferenceIsExpand = PreferenceManager
+            .getDefaultSharedPreferences(context)
+            .getString(PREF_ALBUM_BEHAVIOUR, PLAY) == EXPAND
+
         val metadata = MediaMetadata.Builder()
             .setTitle(item.name)
             .setAlbumArtist(item.albumArtist)
-            .setIsBrowsable(false)
-            .setIsPlayable(true)
+            .setIsBrowsable(preferenceIsExpand)
+            .setIsPlayable(!preferenceIsExpand)
             .setArtworkUri(artUri(item.id))
             .setMediaType(MediaMetadata.MEDIA_TYPE_ALBUM)
             .setExtras(extras)
@@ -215,14 +224,14 @@ class MediaItemFactory(
 
         val preferenceBitrate = PreferenceManager
             .getDefaultSharedPreferences(context)
-            .getString("bitrate", "Direct stream")!!
+            .getString(PREF_BITRATE, DIRECT_STREAM)!!
 
-        val bitrate = if (preferenceBitrate == "Direct stream") null else preferenceBitrate.toInt()
+        val bitrate = if (preferenceBitrate == DIRECT_STREAM) null else preferenceBitrate.toInt()
 
         // Nice-to-have: it would be nice to force transcoding when the codec is not supported
         //  (eg ALAC).
-        //  This would require that we know the codec upfront, but we currently don't have access to
-        //  it because our BaseItemDtos are mostly fecthed via getItemChildren, which queries the
+        //  This would require that we know the codec upfront. we currently don't have access to
+        //  it because our BaseItemDtos are mostly fetched via getItemChildren, which queries the
         //  /Items endpoint, which does not include the codec (mediaSources/mediaStreams) in its
         //  response.
 

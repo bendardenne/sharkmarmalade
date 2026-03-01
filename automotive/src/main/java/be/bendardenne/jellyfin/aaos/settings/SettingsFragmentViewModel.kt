@@ -39,7 +39,7 @@ class SettingsFragmentViewModel
 
 
                 val process = try {
-                    Runtime.getRuntime().exec("logcat -t 5000 -s $LOG_MARKER").also {
+                    Runtime.getRuntime().exec("logcat -t 500 -s $LOG_MARKER").also {
                         it.waitFor(10, TimeUnit.SECONDS)
                     }
                 } catch (e: Exception) {

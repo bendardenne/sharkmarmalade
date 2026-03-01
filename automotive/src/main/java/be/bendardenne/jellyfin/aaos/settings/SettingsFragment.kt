@@ -2,11 +2,11 @@ package be.bendardenne.jellyfin.aaos.settings
 
 import android.os.Bundle
 import android.view.View
-import android.widget.Toast
 import androidx.lifecycle.ViewModelProvider
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import be.bendardenne.jellyfin.aaos.R
+import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -31,11 +31,8 @@ class SettingsFragment : PreferenceFragmentCompat() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        viewModel.toastEvent.observe(viewLifecycleOwner) { event ->
-            if (event.needsShowing()) {
-                Toast.makeText(context, R.string.log_uploaded, Toast.LENGTH_LONG)
-                    .show()
-            }
+        viewModel.logUploadStatus.observe(viewLifecycleOwner) { status ->
+            Snackbar.make(view, status, Snackbar.LENGTH_LONG).show()
         }
     }
 }

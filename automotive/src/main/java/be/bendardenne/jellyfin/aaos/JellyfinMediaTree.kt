@@ -22,12 +22,11 @@ import org.jellyfin.sdk.model.api.ItemSortBy
 import org.jellyfin.sdk.model.api.SortOrder
 import org.jellyfin.sdk.model.serializer.toUUID
 
-private const val MAX_ITEMS = 120
-
 class JellyfinMediaTree(
     private val context: Context,
     private val api: ApiClient,
-    private val itemFactory: MediaItemFactory
+    private val itemFactory: MediaItemFactory,
+    private val maxItemsPerPage: Int = 120
 ) {
 
     private val mediaItems: Cache<String, MediaItem> = CacheBuilder.newBuilder()
@@ -75,7 +74,7 @@ class JellyfinMediaTree(
     private suspend fun getLatestAlbums(): List<MediaItem> {
         val response = api.userLibraryApi.getLatestMedia(
             includeItemTypes = listOf(BaseItemKind.MUSIC_ALBUM),
-            limit = MAX_ITEMS
+            limit = maxItemsPerPage
         )
 
         return response.content.map {
@@ -90,7 +89,7 @@ class JellyfinMediaTree(
             includeItemTypes = listOf(BaseItemKind.MUSIC_ALBUM),
             recursive = true,
             sortBy = listOf(ItemSortBy.RANDOM),
-            limit = MAX_ITEMS
+            limit = maxItemsPerPage
         )
 
         return response.content.items.map {
@@ -106,7 +105,7 @@ class JellyfinMediaTree(
             recursive = true,
             sortOrder = listOf(SortOrder.DESCENDING),
             sortBy = listOf(ItemSortBy.DATE_CREATED),
-            limit = MAX_ITEMS
+            limit = maxItemsPerPage
         )
 
         return response.content.items.map {

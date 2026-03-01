@@ -10,13 +10,13 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.ProgressBar
 import android.widget.TextView
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import be.bendardenne.jellyfin.aaos.R
 import be.bendardenne.jellyfin.aaos.signin.SignInActivityViewModel.Companion.JELLYFIN_SERVER_URL
+import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.launch
 
 
@@ -69,13 +69,13 @@ class UsernamePasswordSignInFragment : Fragment() {
             val password = passwordInput.text
 
             if (TextUtils.isEmpty(username)) {
-                toast(R.string.username_textfield_error)
+                snackbar(R.string.username_textfield_error)
             } else {
                 viewLifecycleOwner.lifecycleScope.launch {
                     val result = viewModel.login(server, username.toString(), password.toString())
 
                     if (!result) {
-                        toast(R.string.login_unsuccessful)
+                        snackbar(R.string.login_unsuccessful)
                     }
 
                     // If successful, the Activity will finish. Apparently we need to manually hide the keyboard.
@@ -91,7 +91,7 @@ class UsernamePasswordSignInFragment : Fragment() {
         }
     }
 
-    private fun toast(message: Int) {
-        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+    private fun snackbar(message: Int) {
+        Snackbar.make(requireView(), message, Snackbar.LENGTH_LONG).show()
     }
 }

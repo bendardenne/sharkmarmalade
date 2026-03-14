@@ -40,6 +40,7 @@ import kotlinx.coroutines.awaitAll
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.extensions.userLibraryApi
 import org.jellyfin.sdk.model.serializer.toUUID
+import kotlin.collections.listOf
 
 
 @OptIn(UnstableApi::class)
@@ -334,7 +335,8 @@ class JellyfinMediaLibrarySessionCallback(
 
     override fun onPlaybackResumption(
         mediaSession: MediaSession,
-        controller: MediaSession.ControllerInfo
+        controller: MediaSession.ControllerInfo,
+        isForPlayback: Boolean
     ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
         return SuspendToFutureAdapter.launchFuture {
             val prefs = PreferenceManager.getDefaultSharedPreferences(service)
@@ -411,10 +413,10 @@ class JellyfinMediaLibrarySessionCallback(
 
         if (newRating == HeartRating(true)) {
             Log.i(LOG_MARKER, "Marking as favorite")
-            jellyfinApi.userLibraryApi.markFavoriteItem(id).content.isFavorite.toString()
+            jellyfinApi.userLibraryApi.markFavoriteItem(id)
         } else {
             Log.i(LOG_MARKER, "Unmarking as favorite")
-            jellyfinApi.userLibraryApi.unmarkFavoriteItem(id).content.isFavorite.toString()
+            jellyfinApi.userLibraryApi.unmarkFavoriteItem(id)
         }
     }
 }

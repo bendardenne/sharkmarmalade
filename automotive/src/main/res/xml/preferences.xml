@@ -34,6 +34,14 @@
 
     <PreferenceCategory android:title="@string/account">
         <Preference
+            android:key="server_url"
+            android:title="@string/server_url"
+            android:selectable="false" />
+        <Preference
+            android:key="username"
+            android:title="@string/username"
+            android:selectable="false" />
+        <Preference
             android:key="logout"
             android:title="@string/logout"
             android:summary="@string/logout_summary" />

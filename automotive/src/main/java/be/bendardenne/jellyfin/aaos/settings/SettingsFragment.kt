@@ -34,6 +34,9 @@ class SettingsFragment : PreferenceFragmentCompat() {
         val version = findPreference<Preference>("version")
         version?.summary = viewModel.versionString()
 
+        findPreference<Preference>("server_url")?.summary = viewModel.serverUrl()
+        findPreference<Preference>("username")?.summary = viewModel.username()
+
         val uploadLogs = findPreference<Preference>("upload_logs")
         uploadLogs?.onPreferenceClickListener = Preference.OnPreferenceClickListener { pref ->
             viewModel.sendLogs()

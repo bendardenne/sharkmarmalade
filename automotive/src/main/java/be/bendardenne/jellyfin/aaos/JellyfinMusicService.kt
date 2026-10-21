@@ -11,11 +11,15 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
+import androidx.media3.datasource.cache.CacheDataSource
+import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
+import androidx.media3.datasource.cache.SimpleCache
 import androidx.preference.PreferenceManager
 import be.bendardenne.jellyfin.aaos.JellyfinMediaLibrarySessionCallback.Companion.PLAYLIST_INDEX_PREF
 import be.bendardenne.jellyfin.aaos.JellyfinMediaLibrarySessionCallback.Companion.PLAYLIST_TRACK_POSITON_MS_PREF
@@ -37,6 +41,8 @@ class JellyfinMusicService : MediaLibraryService() {
 
     private lateinit var accountManager: JellyfinAccountManager
     private lateinit var jellyfinApi: ApiClient
+    private lateinit var cache: SimpleCache
+    private lateinit var cacheDataSourceFactory: CacheDataSource.Factory
     private lateinit var mediaSourceFactory: DefaultMediaSourceFactory
     private lateinit var mediaLibrarySession: MediaLibrarySession
     private lateinit var callback: JellyfinMediaLibrarySessionCallback
@@ -69,7 +75,19 @@ class JellyfinMusicService : MediaLibraryService() {
 
         accountManager = JellyfinAccountManager(AccountManager.get(applicationContext))
         jellyfinApi = jellyfin.createApi()
+
+        val cacheDir = cacheDir
+        val databaseProvider = StandaloneDatabaseProvider(this)
+        cache = SimpleCache(cacheDir, LeastRecentlyUsedCacheEvictor(500 * 1024 * 1024), databaseProvider)
+
+        val httpDataSourceFactory = DefaultHttpDataSource.Factory()
+        cacheDataSourceFactory = CacheDataSource.Factory()
+            .setCache(cache)
+            .setUpstreamDataSourceFactory(httpDataSourceFactory)
+            .setCacheKeyFactory { dataSpec -> dataSpec.uri.toString() }
+
         mediaSourceFactory = DefaultMediaSourceFactory(this)
+            .setDataSourceFactory(cacheDataSourceFactory)
 
         val player = ExoPlayer.Builder(this)
             .setAudioAttributes(AudioAttributes.DEFAULT, true)
@@ -131,8 +149,14 @@ class JellyfinMusicService : MediaLibraryService() {
     fun onLogin() {
         val headers = jellyfinApi.auth(accountManager)
 
-        val authedFactory = DefaultHttpDataSource.Factory().setDefaultRequestProperties(headers)
-        mediaSourceFactory.setDataSourceFactory(authedFactory)
+        val authedHttpFactory = DefaultHttpDataSource.Factory()
+            .setDefaultRequestProperties(headers)
+        val authedCacheFactory = CacheDataSource.Factory()
+            .setCache(cache)
+            .setUpstreamDataSourceFactory(authedHttpFactory)
+            .setCacheKeyFactory { dataSpec -> dataSpec.uri.toString() }
+
+        mediaSourceFactory.setDataSourceFactory(authedCacheFactory)
 
         // Trigger a refresh upon login.
         mediaLibrarySession.notifyChildrenChanged(ROOT_ID, 4, null)

@@ -45,4 +45,14 @@ class JellyfinAccountManager(private val accountManager: AccountManager) {
 
         return account
     }
+
+    fun deleteAccount() {
+        account?.let { account ->
+            try {
+                accountManager.removeAccountExplicitly(account)
+            } catch (e: Exception) {
+                // Account might already be removed
+            }
+        }
+    }
 }

@@ -26,6 +26,10 @@ import androidx.media3.session.SessionError
 import androidx.media3.session.SessionResult
 import androidx.preference.PreferenceManager
 import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.PARENT_KEY
+import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.FAVOURITES
+import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.LATEST_ALBUMS
+import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.PLAYLISTS
+import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.RANDOM_ALBUMS
 import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.ROOT_ID
 import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.LOG_MARKER
 import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.PREF_ALBUM_BEHAVIOUR
@@ -54,6 +58,7 @@ class JellyfinMediaLibrarySessionCallback(
 
     companion object {
         const val LOGIN_COMMAND = "be.bendardenne.jellyfin.aaos.COMMAND.LOGIN"
+        const val LOGOUT_COMMAND = "be.bendardenne.jellyfin.aaos.COMMAND.LOGOUT"
         const val REPEAT_COMMAND = "be.bendardenne.jellyfin.aaos.COMMAND.REPEAT"
         const val SHUFFLE_COMMAND = "be.bendardenne.jellyfin.aaos.COMMAND.SHUFFLE"
 
@@ -87,6 +92,20 @@ class JellyfinMediaLibrarySessionCallback(
         sharedPreferences.registerOnSharedPreferenceChangeListener(prefListener)
     }
 
+    /**
+     * Drops all cached items and tells every subscribed/connected browser to refetch its views.
+     * A new login may be against a different server, so nothing cached may survive.
+     */
+    private fun invalidateAll(session: MediaLibraryService.MediaLibrarySession) {
+        if (::tree.isInitialized) {
+            tree.evictCache()
+        }
+
+        val ids = setOf(ROOT_ID, LATEST_ALBUMS, RANDOM_ALBUMS, FAVOURITES, PLAYLISTS) +
+                subscriptions.values.flatten()
+        ids.forEach { session.notifyChildrenChanged(it, Int.MAX_VALUE, null) }
+    }
+
     override fun onConnect(
         session: MediaSession,
         controller: MediaSession.ControllerInfo
@@ -97,6 +116,7 @@ class JellyfinMediaLibrarySessionCallback(
         val sessionCommands = connectionResult.availableSessionCommands
             .buildUpon()
             .add(SessionCommand(LOGIN_COMMAND, Bundle()))
+            .add(SessionCommand(LOGOUT_COMMAND, Bundle()))
             .add(SessionCommand(REPEAT_COMMAND, Bundle()))
             .add(SessionCommand(SHUFFLE_COMMAND, Bundle()))
             .build()
@@ -128,12 +148,25 @@ class JellyfinMediaLibrarySessionCallback(
         return super.onUnsubscribe(session, browser, parentId)
     }
 
+    @Synchronized
+    private fun ensureTree(params: MediaLibraryService.LibraryParams?) {
+        if (!::tree.isInitialized) {
+            val artSize = params?.extras?.getInt(EXTRAS_KEY_MEDIA_ART_SIZE_PIXELS) ?: 512
+            Log.d(LOG_MARKER, "Art size hint from system: $artSize")
+
+            val itemFactory = MediaItemFactory(service, jellyfinApi, artSize)
+            tree = JellyfinMediaTree(service, jellyfinApi, itemFactory)
+        }
+    }
+
     override fun onGetLibraryRoot(
         session: MediaLibraryService.MediaLibrarySession,
         browser: MediaSession.ControllerInfo,
         params: MediaLibraryService.LibraryParams?
     ): ListenableFuture<LibraryResult<MediaItem>> {
         Log.i(LOG_MARKER, "onGetRoot")
+
+        ensureTree(params)
 
         return SuspendToFutureAdapter.launchFuture {
             LibraryResult.ofItem(
@@ -304,6 +337,7 @@ class JellyfinMediaLibrarySessionCallback(
         query: String,
         params: MediaLibraryService.LibraryParams?
     ): ListenableFuture<LibraryResult<Void>> {
+        ensureTree(params)
         return SuspendToFutureAdapter.launchFuture {
             val results = mediaRepository.search(query).size
             session.notifySearchResultChanged(browser, query, results, params)
@@ -319,6 +353,7 @@ class JellyfinMediaLibrarySessionCallback(
         pageSize: Int,
         params: MediaLibraryService.LibraryParams?
     ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
+        ensureTree(params)
         return SuspendToFutureAdapter.launchFuture {
             val results = mediaRepository.search(query)
             LibraryResult.ofItemList(results, params)
@@ -330,6 +365,7 @@ class JellyfinMediaLibrarySessionCallback(
         controller: MediaSession.ControllerInfo,
         isForPlayback: Boolean
     ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
+        ensureTree(null)
         return SuspendToFutureAdapter.launchFuture {
             val prefs = PreferenceManager.getDefaultSharedPreferences(service)
 
@@ -358,7 +394,14 @@ class JellyfinMediaLibrarySessionCallback(
         Log.i(LOG_MARKER, "CustomCommand: ${customCommand.customAction}")
         when (customCommand.customAction) {
             LOGIN_COMMAND -> {
+                // Clear the cache before the service triggers the refresh.
+                invalidateAll(session as MediaLibraryService.MediaLibrarySession)
                 service.onLogin()
+                return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+            }
+
+            LOGOUT_COMMAND -> {
+                service.onLogout()
                 return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
             }
 

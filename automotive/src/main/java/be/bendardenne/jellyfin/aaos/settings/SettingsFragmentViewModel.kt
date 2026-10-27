@@ -26,6 +26,12 @@ class SettingsFragmentViewModel
 
     val logUploadStatus = MutableLiveData<String>()
 
+    val logoutStatus = MutableLiveData<Boolean>()
+
+    fun serverUrl(): String? = accountManager.server
+
+    fun username(): String? = accountManager.username
+
     fun versionString(): CharSequence =
         "SharkMarmalade: ${jellyfin.clientInfo?.version}, Jellyfin API: ${Jellyfin.apiVersion}"
 
@@ -60,5 +66,10 @@ class SettingsFragmentViewModel
             }
 
         }
+    }
+
+    fun logout() {
+        accountManager.deleteAccount()
+        logoutStatus.postValue(true)
     }
 }

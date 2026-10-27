@@ -31,4 +31,10 @@
     <string name="server_type_label">Server Type:</string>
     <string name="server_type_jellyfin">Jellyfin</string>
     <string name="server_type_subsonic">Subsonic</string>
+    <string name="account">Account</string>
+    <string name="server_url">Server URL</string>
+    <string name="username">Username</string>
+    <string name="logout">Logout</string>
+    <string name="logout_summary">Sign out of your account</string>
+    <string name="logged_out">Logged out successfully</string>
 </resources>

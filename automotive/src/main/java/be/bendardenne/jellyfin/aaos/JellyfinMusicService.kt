@@ -18,14 +18,13 @@ import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
 import androidx.preference.PreferenceManager
 import be.bendardenne.jellyfin.aaos.JellyfinMediaLibrarySessionCallback.Companion.PLAYLIST_INDEX_PREF
-import be.bendardenne.jellyfin.aaos.JellyfinMediaLibrarySessionCallback.Companion.PLAYLIST_TRACK_POSITON_MS_PREF
+import be.bendardenne.jellyfin.aaos.JellyfinMediaLibrarySessionCallback.Companion.PLAYLIST_TRACK_POSITION_MS_PREF
 import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.ROOT_ID
 import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.LOG_MARKER
+import be.bendardenne.jellyfin.aaos.api.JellyfinRepository
+import be.bendardenne.jellyfin.aaos.api.MediaRepositoryFactory
 import dagger.hilt.android.AndroidEntryPoint
 import org.jellyfin.sdk.Jellyfin
-import org.jellyfin.sdk.api.client.ApiClient
-import org.jellyfin.sdk.api.client.extensions.playStateApi
-import org.jellyfin.sdk.model.serializer.toUUID
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -35,8 +34,10 @@ class JellyfinMusicService : MediaLibraryService() {
     @Inject
     lateinit var jellyfin: Jellyfin
 
+    @Inject
+    lateinit var mediaRepositoryFactory: MediaRepositoryFactory
+
     private lateinit var accountManager: JellyfinAccountManager
-    private lateinit var jellyfinApi: ApiClient
     private lateinit var mediaSourceFactory: DefaultMediaSourceFactory
     private lateinit var mediaLibrarySession: MediaLibrarySession
     private lateinit var callback: JellyfinMediaLibrarySessionCallback
@@ -68,7 +69,6 @@ class JellyfinMusicService : MediaLibraryService() {
         Log.i(LOG_MARKER, "onCreate")
 
         accountManager = JellyfinAccountManager(AccountManager.get(applicationContext))
-        jellyfinApi = jellyfin.createApi()
         mediaSourceFactory = DefaultMediaSourceFactory(this)
 
         val player = ExoPlayer.Builder(this)
@@ -85,7 +85,7 @@ class JellyfinMusicService : MediaLibraryService() {
         // https://proandroiddev.com/mastering-playback-state-with-exo-player-977016aa5003
         pollForPlaybackStatus(player)
 
-        callback = JellyfinMediaLibrarySessionCallback(this, accountManager, jellyfinApi)
+        callback = JellyfinMediaLibrarySessionCallback(this, accountManager, mediaRepositoryFactory)
 
         mediaLibrarySession = MediaLibrarySession.Builder(this, player, callback)
             .setMediaButtonPreferences(CommandButtons.createButtons(player))
@@ -105,7 +105,7 @@ class JellyfinMusicService : MediaLibraryService() {
                 currentTrack = player.currentMediaItem
 
                 PreferenceManager.getDefaultSharedPreferences(this@JellyfinMusicService).edit {
-                    putLong(PLAYLIST_TRACK_POSITON_MS_PREF, currentPlaybackTime)
+                    putLong(PLAYLIST_TRACK_POSITION_MS_PREF, currentPlaybackTime)
                 }
             }
 
@@ -129,10 +129,16 @@ class JellyfinMusicService : MediaLibraryService() {
     }
 
     fun onLogin() {
-        val headers = jellyfinApi.auth(accountManager)
+        val repository = mediaRepositoryFactory.getRepository()
+        repository.onLogin()
 
-        val authedFactory = DefaultHttpDataSource.Factory().setDefaultRequestProperties(headers)
-        mediaSourceFactory.setDataSourceFactory(authedFactory)
+        if (accountManager.serverType == ServerType.JELLYFIN && repository is JellyfinRepository) {
+            val headers = repository.jellyfinApi.auth(accountManager)
+            val authedFactory = DefaultHttpDataSource.Factory().setDefaultRequestProperties(headers)
+            mediaSourceFactory.setDataSourceFactory(authedFactory)
+        } else {
+            mediaSourceFactory.setDataSourceFactory(DefaultHttpDataSource.Factory())
+        }
 
         // Trigger a refresh upon login.
         mediaLibrarySession.notifyChildrenChanged(ROOT_ID, 4, null)
@@ -140,13 +146,11 @@ class JellyfinMusicService : MediaLibraryService() {
 
     private suspend fun reportPlayback(player: Player) {
         val exoPlayer = player as ExoPlayer
-        // MediaItem has changed; if there was a previous item playing, mark it stopped.
+        val repository = mediaRepositoryFactory.getRepository()
+
         if (currentTrack != null) {
             Log.i(LOG_MARKER, "Reporting playback stopped: ${currentPlaybackTime}")
-            jellyfinApi.playStateApi.onPlaybackStopped(
-                currentTrack!!.mediaId.toUUID(),
-                positionTicks = 10000 * currentPlaybackTime
-            )
+            repository.reportPlaybackStopped(currentTrack!!, currentPlaybackTime)
         }
 
         if (player.currentMediaItem != null) {
@@ -157,10 +161,7 @@ class JellyfinMusicService : MediaLibraryService() {
                 LOG_MARKER,
                 "Playing $formatString: ${exoPlayer.currentMediaItem?.localConfiguration?.uri}"
             )
-            jellyfinApi.playStateApi.onPlaybackStart(
-                player.currentMediaItem!!.mediaId.toUUID(),
-                canSeek = true
-            )
+            repository.reportPlaybackStart(player.currentMediaItem!!)
         }
     }
 }

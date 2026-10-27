@@ -28,4 +28,7 @@
     <string name="album_behaviour">Album behaviour</string>
     <string name="upload_logs">Upload logs to Jellyfin server</string>
     <string name="log_uploaded">Logfile uploaded to server</string>
+    <string name="server_type_label">Server Type:</string>
+    <string name="server_type_jellyfin">Jellyfin</string>
+    <string name="server_type_subsonic">Subsonic</string>
 </resources>

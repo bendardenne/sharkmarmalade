@@ -6,7 +6,10 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import be.bendardenne.jellyfin.aaos.JellyfinAccountManager
+import be.bendardenne.jellyfin.aaos.ServerType
 import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.LOG_MARKER
+import be.bendardenne.jellyfin.aaos.api.MediaRepositoryFactory
+import be.bendardenne.jellyfin.aaos.api.createSubsonicApi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -31,6 +34,9 @@ class SignInActivityViewModel @Inject constructor() : ViewModel() {
     @Inject
     lateinit var accountManager: JellyfinAccountManager
 
+    @Inject
+    lateinit var mediaRepositoryFactory: MediaRepositoryFactory
+
     private var quickConnectSecret: String = ""
 
     private val _loggedIn = MutableLiveData<Boolean>()
@@ -39,15 +45,35 @@ class SignInActivityViewModel @Inject constructor() : ViewModel() {
     private val _quickConnectCode = MutableLiveData<Int>()
     val quickConnectCode: LiveData<Int> = _quickConnectCode
 
-    suspend fun pingServer(serverUrl: String): Boolean {
+    suspend fun pingServer(
+        serverUrl: String,
+        serverType: ServerType = ServerType.JELLYFIN
+    ): Boolean {
         return try {
-            Log.i(LOG_MARKER, "Pinging $serverUrl")
+            Log.i(LOG_MARKER, "Pinging $serverUrl ($serverType)")
 
-            val response = withContext(Dispatchers.IO) {
-                jellyfin.createApi(serverUrl).systemApi.getPingSystem()
+            withContext(Dispatchers.IO) {
+                when (serverType) {
+                    ServerType.JELLYFIN -> {
+                        val response = jellyfin.createApi(serverUrl).systemApi.getPingSystem()
+                        response.status == 200
+                    }
+
+                    ServerType.SUBSONIC -> {
+                        true
+                        // TODO
+                      /*  try {
+                            createSubsonicApi(serverUrl).use { api ->
+                                api.ping()
+                            }
+                            true
+                        } catch (e: Exception) {
+                            Log.w(LOG_MARKER, "Subsonic ping failed", e)
+                            false
+                        }*/
+                    }
+                }
             }
-
-            response.status == 200
         } catch (e: Exception) {
             Log.w(LOG_MARKER, "Error", e)
             false
@@ -106,23 +132,49 @@ class SignInActivityViewModel @Inject constructor() : ViewModel() {
                 loginSuccess(
                     server,
                     loginResponse.content.user?.name!!,
-                    loginResponse.content.accessToken!!
+                    loginResponse.content.accessToken!!,
+                    ServerType.JELLYFIN
                 )
             }
         }
     }
 
-    suspend fun login(server: String, username: String, password: String): Boolean {
+    suspend fun login(
+        server: String,
+        username: String,
+        password: String,
+        serverType: ServerType = ServerType.JELLYFIN
+    ): Boolean {
         return try {
-            val response = withContext(Dispatchers.IO) {
-                jellyfin.createApi(server).userApi.authenticateUserByName(username, password)
-            }
+            withContext(Dispatchers.IO) {
+                when (serverType) {
+                    ServerType.JELLYFIN -> {
+                        val response = jellyfin.createApi(server).userApi.authenticateUserByName(
+                            username,
+                            password
+                        )
+                        if (response.status == 200) {
+                            loginSuccess(
+                                server,
+                                username,
+                                response.content.accessToken!!,
+                                serverType
+                            )
+                            true
+                        } else {
+                            false
+                        }
+                    }
 
-            if (response.status == 200) {
-                loginSuccess(server, username, response.content.accessToken!!)
+                    ServerType.SUBSONIC -> {
+                        createSubsonicApi(server, username, password).use { subsonicApi ->
+                            subsonicApi.ping()
+                            loginSuccess(server, username, password, serverType)
+                        }
+                        true
+                    }
+                }
             }
-
-            response.status == 200
         } catch (e: Exception) {
             Log.e(LOG_MARKER, "Error", e)
             false
@@ -132,14 +184,17 @@ class SignInActivityViewModel @Inject constructor() : ViewModel() {
     private fun loginSuccess(
         server: String,
         username: String,
-        token: String
+        token: String,
+        serverType: ServerType
     ) {
-        Log.i(LOG_MARKER, "$username successfully authenticated")
-        accountManager.storeAccount(server, username, token)
+        Log.i(LOG_MARKER, "$username successfully authenticated on $serverType")
+        accountManager.storeAccount(server, username, token, serverType)
+        mediaRepositoryFactory.invalidate()
         _loggedIn.postValue(true)
     }
 
     companion object {
         internal const val JELLYFIN_SERVER_URL = "jellyfinServer"
+        internal const val SERVER_TYPE_KEY = "serverType"
     }
 }

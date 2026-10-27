@@ -41,6 +41,33 @@
         app:layout_constraintLeft_toRightOf="@id/server_uri"
         app:layout_constraintTop_toTopOf="@id/server_uri" />
 
+    <RadioGroup
+        android:id="@+id/server_type_group"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:orientation="horizontal"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/server_uri">
+
+        <RadioButton
+            android:id="@+id/radio_jellyfin"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="32dp"
+            android:checked="true"
+            android:text="@string/server_type_jellyfin"
+            android:textSize="22sp" />
+
+        <RadioButton
+            android:id="@+id/radio_subsonic"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/server_type_subsonic"
+            android:textSize="22sp" />
+    </RadioGroup>
+
     <Button
         android:id="@+id/submit_server_button"
         android:layout_width="400dp"
@@ -54,6 +81,6 @@
         android:textStyle="bold"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/server_uri" />
+        app:layout_constraintTop_toBottomOf="@id/server_type_group" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

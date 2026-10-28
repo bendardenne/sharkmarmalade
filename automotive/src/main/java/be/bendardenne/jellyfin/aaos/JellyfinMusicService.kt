@@ -21,8 +21,8 @@ import be.bendardenne.jellyfin.aaos.JellyfinMediaLibrarySessionCallback.Companio
 import be.bendardenne.jellyfin.aaos.JellyfinMediaLibrarySessionCallback.Companion.PLAYLIST_TRACK_POSITION_MS_PREF
 import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.ROOT_ID
 import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.LOG_MARKER
-import be.bendardenne.jellyfin.aaos.api.JellyfinRepository
-import be.bendardenne.jellyfin.aaos.api.MediaRepositoryFactory
+import be.bendardenne.jellyfin.aaos.api.JellyfinTree
+import be.bendardenne.jellyfin.aaos.api.MediaTreeFactory
 import dagger.hilt.android.AndroidEntryPoint
 import org.jellyfin.sdk.Jellyfin
 import javax.inject.Inject
@@ -35,7 +35,7 @@ class JellyfinMusicService : MediaLibraryService() {
     lateinit var jellyfin: Jellyfin
 
     @Inject
-    lateinit var mediaRepositoryFactory: MediaRepositoryFactory
+    lateinit var mediaTreeFactory: MediaTreeFactory
 
     private lateinit var accountManager: JellyfinAccountManager
     private lateinit var mediaSourceFactory: DefaultMediaSourceFactory
@@ -85,7 +85,7 @@ class JellyfinMusicService : MediaLibraryService() {
         // https://proandroiddev.com/mastering-playback-state-with-exo-player-977016aa5003
         pollForPlaybackStatus(player)
 
-        callback = JellyfinMediaLibrarySessionCallback(this, accountManager, mediaRepositoryFactory)
+        callback = JellyfinMediaLibrarySessionCallback(this, accountManager, mediaTreeFactory)
 
         mediaLibrarySession = MediaLibrarySession.Builder(this, player, callback)
             .setMediaButtonPreferences(CommandButtons.createButtons(player))
@@ -142,16 +142,16 @@ class JellyfinMusicService : MediaLibraryService() {
         PreferenceManager.getDefaultSharedPreferences(this).edit {
             remove(JellyfinMediaLibrarySessionCallback.PLAYLIST_IDS_PREF)
             remove(PLAYLIST_INDEX_PREF)
-            remove(PLAYLIST_TRACK_POSITON_MS_PREF)
+            remove(PLAYLIST_TRACK_POSITION_MS_PREF)
         }
     }
 
     fun onLogin() {
-        val repository = mediaRepositoryFactory.getRepository()
-        repository.onLogin()
+        val mediaTree = mediaTreeFactory.getTree()
+        mediaTree.onLogin()
 
-        if (accountManager.serverType == ServerType.JELLYFIN && repository is JellyfinRepository) {
-            val headers = repository.jellyfinApi.auth(accountManager)
+        if (accountManager.serverType == ServerType.JELLYFIN && mediaTree is JellyfinTree) {
+            val headers = mediaTree.jellyfinApi.auth(accountManager)
             val authedFactory = DefaultHttpDataSource.Factory().setDefaultRequestProperties(headers)
             mediaSourceFactory.setDataSourceFactory(authedFactory)
         } else {
@@ -164,11 +164,11 @@ class JellyfinMusicService : MediaLibraryService() {
 
     private suspend fun reportPlayback(player: Player) {
         val exoPlayer = player as ExoPlayer
-        val repository = mediaRepositoryFactory.getRepository()
+        val mediaTree = mediaTreeFactory.getTree()
 
         if (currentTrack != null) {
             Log.i(LOG_MARKER, "Reporting playback stopped: ${currentPlaybackTime}")
-            repository.reportPlaybackStopped(currentTrack!!, currentPlaybackTime)
+            mediaTree.reportPlaybackStopped(currentTrack!!, currentPlaybackTime)
         }
 
         if (player.currentMediaItem != null) {
@@ -179,7 +179,7 @@ class JellyfinMusicService : MediaLibraryService() {
                 LOG_MARKER,
                 "Playing $formatString: ${exoPlayer.currentMediaItem?.localConfiguration?.uri}"
             )
-            repository.reportPlaybackStart(player.currentMediaItem!!)
+            mediaTree.reportPlaybackStart(player.currentMediaItem!!)
         }
     }
 }

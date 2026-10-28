@@ -11,41 +11,41 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class MediaRepositoryFactory @Inject constructor(
+class MediaTreeFactory @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val accountManager: JellyfinAccountManager,
     private val jellyfin: Jellyfin
 ) {
-    private var repository: MediaRepository? = null
+    private var mediaTree: MediaTree? = null
 
     @Synchronized
-    fun getRepository(artSize: Int = 512): MediaRepository {
-        var current = repository
+    fun getTree(artSize: Int = 512): MediaTree {
+        var current = mediaTree
         val type = accountManager.serverType
         if (current == null ||
-            (type == ServerType.JELLYFIN && current !is JellyfinRepository) ||
-            (type == ServerType.SUBSONIC && current !is SubsonicRepository)
+            (type == ServerType.JELLYFIN && current !is JellyfinTree) ||
+            (type == ServerType.SUBSONIC && current !is SubsonicTree)
         ) {
-            Log.i(LOG_MARKER, "Creating repository $type")
-            if (current is SubsonicRepository) {
+            Log.i(LOG_MARKER, "Creating tree of $type")
+            if (current is SubsonicTree) {
                 current.close()
             }
 
             current = when (type) {
-                ServerType.JELLYFIN -> JellyfinRepository(context, accountManager, jellyfin, artSize)
-                ServerType.SUBSONIC -> SubsonicRepository(context, accountManager, artSize)
+                ServerType.JELLYFIN -> JellyfinTree(context, accountManager, jellyfin, artSize)
+                ServerType.SUBSONIC -> SubsonicTree(context, accountManager, artSize)
             }
-            repository = current
+            mediaTree = current
         }
         return current
     }
 
     @Synchronized
     fun invalidate() {
-        val current = repository
-        if (current is SubsonicRepository) {
+        val current = mediaTree
+        if (current is SubsonicTree) {
             current.close()
         }
-        repository = null
+        mediaTree = null
     }
 }

@@ -8,7 +8,7 @@ import androidx.lifecycle.viewModelScope
 import be.bendardenne.jellyfin.aaos.JellyfinAccountManager
 import be.bendardenne.jellyfin.aaos.ServerType
 import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.LOG_MARKER
-import be.bendardenne.jellyfin.aaos.api.MediaRepositoryFactory
+import be.bendardenne.jellyfin.aaos.api.MediaTreeFactory
 import be.bendardenne.jellyfin.aaos.api.createSubsonicApi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -35,7 +35,7 @@ class SignInActivityViewModel @Inject constructor() : ViewModel() {
     lateinit var accountManager: JellyfinAccountManager
 
     @Inject
-    lateinit var mediaRepositoryFactory: MediaRepositoryFactory
+    lateinit var mediaTreeFactory: MediaTreeFactory
 
     private var quickConnectSecret: String = ""
 
@@ -189,7 +189,7 @@ class SignInActivityViewModel @Inject constructor() : ViewModel() {
     ) {
         Log.i(LOG_MARKER, "$username successfully authenticated on $serverType")
         accountManager.storeAccount(server, username, token, serverType)
-        mediaRepositoryFactory.invalidate()
+        mediaTreeFactory.invalidate()
         _loggedIn.postValue(true)
     }
 

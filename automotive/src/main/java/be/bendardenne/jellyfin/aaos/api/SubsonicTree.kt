@@ -1,7 +1,6 @@
 package be.bendardenne.jellyfin.aaos.api
 
 import android.content.Context
-import android.os.Bundle
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.core.net.toUri
@@ -10,23 +9,16 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Rating
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.session.MediaConstants
-import androidx.preference.PreferenceManager
 import be.bendardenne.jellyfin.aaos.AlbumArtContentProvider
 import be.bendardenne.jellyfin.aaos.JellyfinAccountManager
+import be.bendardenne.jellyfin.aaos.MediaItemFactory
 import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.FAVOURITES
 import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.LATEST_ALBUMS
-import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.PARENT_KEY
 import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.PLAYLISTS
 import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.RANDOM_ALBUMS
 import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.ROOT_ID
 import be.bendardenne.jellyfin.aaos.R
-import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.DIRECT_STREAM
-import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.EXPAND
 import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.LOG_MARKER
-import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.PLAY
-import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.PREF_ALBUM_BEHAVIOUR
-import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.PREF_BITRATE
 import com.google.common.cache.Cache
 import com.google.common.cache.CacheBuilder
 import dev.zt64.subsonic.api.model.Album
@@ -39,11 +31,13 @@ import kotlin.time.ExperimentalTime
 
 @OptIn(UnstableApi::class)
 @kotlin.OptIn(ExperimentalTime::class)
-class SubsonicRepository(
+class SubsonicTree(
     private val context: Context,
     private val accountManager: JellyfinAccountManager,
     private val artSize: Int = 512
-) : MediaRepository {
+) : MediaTree {
+
+    private val itemFactory = MediaItemFactory(context)
 
     private val mediaItems: Cache<String, MediaItem> = CacheBuilder.newBuilder()
         .maximumSize(1000)
@@ -82,11 +76,11 @@ class SubsonicRepository(
         if (cached != null) return cached
 
         val item = when (id) {
-            ROOT_ID -> createRootNode()
-            LATEST_ALBUMS -> createCategoryNode(LATEST_ALBUMS, "Latest", "schedule", MediaMetadata.MEDIA_TYPE_FOLDER_ALBUMS)
-            RANDOM_ALBUMS -> createCategoryNode(RANDOM_ALBUMS, "Random", "casino", MediaMetadata.MEDIA_TYPE_FOLDER_ALBUMS)
-            FAVOURITES -> createCategoryNode(FAVOURITES, "Favourites", "star_filled", MediaMetadata.MEDIA_TYPE_FOLDER_MIXED)
-            PLAYLISTS -> createCategoryNode(PLAYLISTS, "Playlists", "playlists", MediaMetadata.MEDIA_TYPE_FOLDER_PLAYLISTS)
+            ROOT_ID -> itemFactory.rootNode()
+            LATEST_ALBUMS -> itemFactory.latestAlbums()
+            RANDOM_ALBUMS -> itemFactory.randomAlbums()
+            FAVOURITES -> itemFactory.favourites()
+            PLAYLISTS -> itemFactory.playlists()
             else -> fetchItemFromSubsonic(id)
         }
 
@@ -95,7 +89,7 @@ class SubsonicRepository(
             return item
         }
 
-        return createRootNode()
+        return itemFactory.rootNode()
     }
 
     override suspend fun getChildren(id: String): List<MediaItem> {
@@ -242,7 +236,7 @@ class SubsonicRepository(
                 val playlist = api.getPlaylist(id)
                 val entries = playlist.songs
                 entries.map {
-                    val item = createPlaylistEntryItem(it, parent = id)
+                    val item = createSongItem(it, parent = id)
                     mediaItems.put(item.mediaId, item)
                     item
                 }
@@ -354,127 +348,28 @@ class SubsonicRepository(
         }
     }
 
-    private fun createRootNode(): MediaItem {
-        val metadata = MediaMetadata.Builder()
-            .setTitle("Root")
-            .setIsBrowsable(true)
-            .setIsPlayable(false)
-            .setMediaType(MediaMetadata.MEDIA_TYPE_FOLDER_MIXED)
-            .build()
-
-        return MediaItem.Builder()
-            .setMediaId(ROOT_ID)
-            .setMediaMetadata(metadata)
-            .build()
-    }
-
-    private fun createCategoryNode(id: String, label: String, iconName: String, mediaType: @MediaMetadata.MediaType Int): MediaItem {
-        val extras = Bundle()
-        extras.putInt(
-            MediaConstants.EXTRAS_KEY_CONTENT_STYLE_PLAYABLE,
-            MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM
-        )
-        extras.putInt(
-            MediaConstants.EXTRAS_KEY_CONTENT_STYLE_BROWSABLE,
-            MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM
-        )
-
-        val metadata = MediaMetadata.Builder()
-            .setTitle(label)
-            .setIsBrowsable(true)
-            .setIsPlayable(false)
-            .setArtworkUri("android.resource://be.bendardenne.jellyfin.aaos/drawable/$iconName".toUri())
-            .setExtras(extras)
-            .setMediaType(mediaType)
-            .build()
-
-        return MediaItem.Builder()
-            .setMediaId(id)
-            .setMediaMetadata(metadata)
-            .build()
-    }
-
     private fun createArtistItem(artist: Artist, group: String? = null): MediaItem {
-        val extras = Bundle()
-        if (group != null) {
-            extras.putString(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_GROUP_TITLE, group)
-        }
-        extras.putInt(
-            MediaConstants.EXTRAS_KEY_CONTENT_STYLE_PLAYABLE,
-            MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM
-        )
-        extras.putInt(
-            MediaConstants.EXTRAS_KEY_CONTENT_STYLE_BROWSABLE,
-            MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM
-        )
-
         val artCover = artist.coverArtId ?: artist.artistImageUrl
-        val artUri = artCover?.let { getArtUri(it) }
-
-        val metadata = MediaMetadata.Builder()
-            .setTitle(artist.name)
-            .setIsBrowsable(true)
-            .setIsPlayable(false)
-            .setArtworkUri(artUri)
-            .setMediaType(MediaMetadata.MEDIA_TYPE_ARTIST)
-            .setExtras(extras)
-            .build()
-
-        return MediaItem.Builder()
-            .setMediaId(artist.id)
-            .setMediaMetadata(metadata)
-            .build()
+        return itemFactory.artist(artist.id, artist.name, artCover?.let { getArtUri(it) }, group = group)
     }
 
     private fun createAlbumItem(album: Album, group: String? = null): MediaItem {
-        val extras = Bundle()
-        if (group != null) {
-            extras.putString(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_GROUP_TITLE, group)
-        }
-
-        val preferenceIsExpand = PreferenceManager
-            .getDefaultSharedPreferences(context)
-            .getString(PREF_ALBUM_BEHAVIOUR, PLAY) == EXPAND
-
-        val artUri = album.coverArtId?.let { getArtUri(it) }
-
-        val metadata = MediaMetadata.Builder()
-            .setTitle(album.name)
-            .setAlbumArtist(album.artistName)
-            .setIsBrowsable(preferenceIsExpand)
-            .setIsPlayable(!preferenceIsExpand)
-            .setArtworkUri(artUri)
-            .setMediaType(MediaMetadata.MEDIA_TYPE_ALBUM)
-            .setExtras(extras)
-            .build()
-
-        return MediaItem.Builder()
-            .setMediaId(album.id)
-            .setMediaMetadata(metadata)
-            .build()
+        return itemFactory.album(
+            album.id,
+            album.name,
+            album.artistName,
+            album.coverArtId?.let { getArtUri(it) },
+            group
+        )
     }
 
     private fun createPlaylistItem(playlist: Playlist, group: String? = null): MediaItem {
-        val extras = Bundle()
-        if (group != null) {
-            extras.putString(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_GROUP_TITLE, group)
-        }
-
-        val artUri = playlist.coverArtId?.let { getArtUri(it) }
-
-        val metadata = MediaMetadata.Builder()
-            .setTitle(playlist.name)
-            .setIsBrowsable(false)
-            .setIsPlayable(true)
-            .setArtworkUri(artUri)
-            .setMediaType(MediaMetadata.MEDIA_TYPE_PLAYLIST)
-            .setExtras(extras)
-            .build()
-
-        return MediaItem.Builder()
-            .setMediaId(playlist.id)
-            .setMediaMetadata(metadata)
-            .build()
+        return itemFactory.playlist(
+            playlist.id,
+            playlist.name,
+            playlist.coverArtId?.let { getArtUri(it) },
+            group
+        )
     }
 
     private fun createSongItem(
@@ -482,101 +377,23 @@ class SubsonicRepository(
         group: String? = null,
         parent: String? = null
     ): MediaItem {
-        val coverArtId = song.coverArtId ?: song.albumId ?: song.id
-        val artUri = getArtUri(coverArtId)
-
-        val preferenceBitrate = PreferenceManager
-            .getDefaultSharedPreferences(context)
-            .getString(PREF_BITRATE, DIRECT_STREAM)!!
-
-        val bitrate = preferenceBitrate.toIntOrNull()?.takeIf { it > 0 } ?: 0
         val streamUrl = api.getStreamUrl(
             song.id,
-            maxBitRate = if (preferenceBitrate == DIRECT_STREAM) 0 else bitrate
+            maxBitRate = itemFactory.preferredBitrate()?.takeIf { it > 0 } ?: 0
         )
 
-        val extras = Bundle()
-        if (group != null) {
-            extras.putString(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_GROUP_TITLE, group)
-        }
-        if (parent != null) {
-            extras.putString(PARENT_KEY, parent)
-        }
-
-        val metadata = MediaMetadata.Builder()
-            .setTitle(song.title)
-            .setAlbumTitle(song.albumTitle)
-            .setAlbumArtist(song.artistName)
-            .setIsBrowsable(false)
-            .setIsPlayable(true)
-            .setArtworkUri(artUri)
-            .setUserRating(HeartRating(song.starredAt != null))
-            .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
-            .apply {
-                val duration = song.duration
-                if (duration != null && duration.inWholeMilliseconds > 0) {
-                    setDurationMs(duration.inWholeMilliseconds)
-                }
-            }
-            .setExtras(extras)
-            .build()
-
-        return MediaItem.Builder()
-            .setMediaId(song.id)
-            .setMediaMetadata(metadata)
-            .setUri(streamUrl.toUri())
-            .build()
-    }
-
-    private fun createPlaylistEntryItem(
-        entry: Song,
-        group: String? = null,
-        parent: String? = null
-    ): MediaItem {
-        val coverArtId = entry.coverArtId ?: entry.albumId ?: entry.id
-        val artUri = getArtUri(coverArtId)
-
-        val preferenceBitrate = PreferenceManager
-            .getDefaultSharedPreferences(context)
-            .getString(PREF_BITRATE, DIRECT_STREAM)!!
-
-        val bitrate = preferenceBitrate.toIntOrNull()?.takeIf { it > 0 } ?: 0
-        val streamUrl = api.getStreamUrl(
-            entry.id,
-            maxBitRate = if (preferenceBitrate == DIRECT_STREAM) 0 else bitrate
+        return itemFactory.track(
+            id = song.id,
+            title = song.title,
+            albumArtist = song.artistName,
+            artworkUri = getArtUri(song.coverArtId ?: song.albumId ?: song.id),
+            streamUri = streamUrl.toUri(),
+            isFavourite = song.starredAt != null,
+            durationMs = song.duration?.inWholeMilliseconds?.takeIf { it > 0 },
+            albumTitle = song.albumTitle,
+            group = group,
+            parent = parent
         )
-
-        val extras = Bundle()
-        if (group != null) {
-            extras.putString(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_GROUP_TITLE, group)
-        }
-        if (parent != null) {
-            extras.putString(PARENT_KEY, parent)
-        }
-
-        val metadata = MediaMetadata.Builder()
-            .setTitle(entry.title)
-            .setAlbumTitle(entry.albumTitle)
-            .setAlbumArtist(entry.artistName)
-            .setIsBrowsable(false)
-            .setIsPlayable(true)
-            .setArtworkUri(artUri)
-            .setUserRating(HeartRating(entry.starredAt != null))
-            .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
-            .apply {
-                val duration = entry.duration
-                if (duration != null && duration.inWholeMilliseconds > 0) {
-                    setDurationMs(duration.inWholeMilliseconds)
-                }
-            }
-            .setExtras(extras)
-            .build()
-
-        return MediaItem.Builder()
-            .setMediaId(entry.id)
-            .setMediaMetadata(metadata)
-            .setUri(streamUrl.toUri())
-            .build()
     }
 
     private fun getArtUri(coverArtId: String): android.net.Uri {

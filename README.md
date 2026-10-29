@@ -20,3 +20,8 @@ Please feel free to add to this list if you manage to use the app in your car!
 - Volvo EX30
 - Chevy Equinox EV
 - Renault / Nissan  ??  OpenR Link
+
+## Contributors
+
+@bendardenne
+@schredder

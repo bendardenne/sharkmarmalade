@@ -13,9 +13,9 @@ android {
     defaultConfig {
         applicationId = "be.bendardenne.jellyfin.aaos"
         minSdk = 29
-        targetSdk = 34
-        versionCode = 38
-        versionName = "1.4"
+        targetSdk = 36
+        versionCode = 43
+        versionName = "1.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

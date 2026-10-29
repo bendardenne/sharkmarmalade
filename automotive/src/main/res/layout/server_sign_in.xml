@@ -1,86 +1,104 @@
 <?xml version="1.0" encoding="utf-8"?>
-
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/server_sign_in_scroll"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:gravity="center"
-    android:orientation="vertical">
+    android:fillViewport="true">
 
-    <ImageView
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_margin="50dp"
-        android:src="@drawable/app_logo"
-        app:layout_constraintBottom_toTopOf="@+id/server_uri"
-        app:layout_constraintLeft_toLeftOf="@id/server_uri"
-        app:layout_constraintRight_toRightOf="@id/server_uri"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <EditText
-        android:id="@+id/server_uri"
-        style="@style/LargerTextField"
-        android:layout_width="400dp"
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:hint="@string/server_textfield_hint"
-        android:inputType="textUri"
-        android:maxLines="1"
-        android:singleLine="true"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        android:padding="24dp">
 
-    <ProgressBar
-        android:id="@+id/progress_bar"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:visibility="invisible"
-        app:layout_constraintBottom_toBottomOf="@id/server_uri"
-        app:layout_constraintLeft_toRightOf="@id/server_uri"
-        app:layout_constraintTop_toTopOf="@id/server_uri" />
-
-    <RadioGroup
-        android:id="@+id/server_type_group"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:orientation="horizontal"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/server_uri">
-
-        <RadioButton
-            android:id="@+id/radio_jellyfin"
-            android:layout_width="wrap_content"
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/server_sign_in_form"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="32dp"
-            android:checked="true"
-            android:text="@string/server_type_jellyfin"
-            android:textSize="22sp" />
+            app:layout_constraintWidth_max="480dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
 
-        <RadioButton
-            android:id="@+id/radio_subsonic"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/server_type_subsonic"
-            android:textSize="22sp" />
-    </RadioGroup>
+            <ImageView
+                android:id="@+id/server_sign_in_logo"
+                android:layout_width="96dp"
+                android:layout_height="68dp"
+                android:importantForAccessibility="no"
+                android:scaleType="fitCenter"
+                android:src="@drawable/app_logo"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
 
-    <Button
-        android:id="@+id/submit_server_button"
-        android:layout_width="400dp"
-        android:layout_height="120dp"
-        android:layout_gravity="center"
-        android:layout_marginTop="16dp"
-        android:background="@color/colorPrimary"
-        android:text="@string/server_button_label"
-        android:textColor="@android:color/black"
-        android:textSize="30sp"
-        android:textStyle="bold"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/server_type_group" />
+            <EditText
+                android:id="@+id/server_uri"
+                style="@style/LargerTextField"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:hint="@string/server_textfield_hint"
+                android:inputType="textUri"
+                android:maxLines="1"
+                android:paddingEnd="56dp"
+                android:singleLine="true"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/server_sign_in_logo" />
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+            <ProgressBar
+                android:id="@+id/progress_bar"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_marginEnd="12dp"
+                android:visibility="invisible"
+                app:layout_constraintBottom_toBottomOf="@id/server_uri"
+                app:layout_constraintEnd_toEndOf="@id/server_uri"
+                app:layout_constraintTop_toTopOf="@id/server_uri" />
+
+            <RadioGroup
+                android:id="@+id/server_type_group"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:orientation="horizontal"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/server_uri">
+
+                <RadioButton
+                    android:id="@+id/radio_jellyfin"
+                    style="@style/ServerTypeTile"
+                    android:layout_marginEnd="24dp"
+                    android:checked="true"
+                    android:drawableTop="@drawable/server_type_jellyfin_icon"
+                    android:text="@string/server_type_jellyfin" />
+
+                <RadioButton
+                    android:id="@+id/radio_subsonic"
+                    style="@style/ServerTypeTile"
+                    android:drawableTop="@drawable/server_type_subsonic_icon"
+                    android:text="@string/server_type_subsonic" />
+            </RadioGroup>
+
+            <Button
+                android:id="@+id/submit_server_button"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:minHeight="64dp"
+                android:background="@color/colorPrimary"
+                android:padding="16dp"
+                android:text="@string/server_button_label"
+                android:textColor="@android:color/black"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/server_type_group" />
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</ScrollView>

@@ -23,5 +23,5 @@ Please feel free to add to this list if you manage to use the app in your car!
 
 ## Contributors
 
-@bendardenne
-@schredder
+- @bendardenne
+- @schredder

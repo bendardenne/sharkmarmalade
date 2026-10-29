@@ -19,6 +19,9 @@ class JellyfinAccountManager(private val accountManager: AccountManager) {
     val server: String?
         get() = account?.let { accountManager.getUserData(it, USERDATA_SERVER_KEY) }
 
+    val username: String?
+        get() = account?.name
+
     val token: String?
         get() = account?.let { accountManager.peekAuthToken(it, TOKEN_TYPE) }
 
@@ -44,5 +47,15 @@ class JellyfinAccountManager(private val accountManager: AccountManager) {
         accountManager.setAuthToken(account, TOKEN_TYPE, token)
 
         return account
+    }
+
+    fun deleteAccount() {
+        account?.let { account ->
+            try {
+                accountManager.removeAccountExplicitly(account)
+            } catch (e: Exception) {
+                // Account might already be removed
+            }
+        }
     }
 }

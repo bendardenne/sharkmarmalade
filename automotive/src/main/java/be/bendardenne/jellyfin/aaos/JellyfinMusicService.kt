@@ -128,6 +128,24 @@ class JellyfinMusicService : MediaLibraryService() {
         super.onDestroy()
     }
 
+    fun onLogout() {
+        // Remove the account first so browsers refetching afterwards see the signed-out state.
+        accountManager.deleteAccount()
+
+        val player = mediaLibrarySession.player
+        player.stop()
+        player.clearMediaItems()
+        currentTrack = null
+        currentPlaybackTime = 0
+
+        // Drop the persisted queue so it is not restored for the next user.
+        PreferenceManager.getDefaultSharedPreferences(this).edit {
+            remove(JellyfinMediaLibrarySessionCallback.PLAYLIST_IDS_PREF)
+            remove(PLAYLIST_INDEX_PREF)
+            remove(PLAYLIST_TRACK_POSITON_MS_PREF)
+        }
+    }
+
     fun onLogin() {
         val headers = jellyfinApi.auth(accountManager)
 

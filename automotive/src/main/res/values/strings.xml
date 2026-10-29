@@ -28,4 +28,10 @@
     <string name="album_behaviour">Album behaviour</string>
     <string name="upload_logs">Upload logs to Jellyfin server</string>
     <string name="log_uploaded">Logfile uploaded to server</string>
+    <string name="account">Account</string>
+    <string name="server_url">Server URL</string>
+    <string name="username">Username</string>
+    <string name="logout">Logout</string>
+    <string name="logout_summary">Sign out of your Jellyfin account</string>
+    <string name="logged_out">Logged out successfully</string>
 </resources>

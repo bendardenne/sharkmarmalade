@@ -4,6 +4,7 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import be.bendardenne.jellyfin.aaos.JellyfinAccountManager
+import be.bendardenne.jellyfin.aaos.ServerType
 import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.LOG_MARKER
 import be.bendardenne.jellyfin.aaos.auth
 import com.google.common.base.Strings
@@ -32,8 +33,15 @@ class SettingsFragmentViewModel
 
     fun username(): String? = accountManager.username
 
-    fun versionString(): CharSequence =
-        "SharkMarmalade: ${jellyfin.clientInfo?.version}, Jellyfin API: ${Jellyfin.apiVersion}"
+    fun serverType(): ServerType = accountManager.serverType
+
+    fun versionString(): CharSequence = when (serverType()) {
+        ServerType.JELLYFIN ->
+            "SharkMarmalade: ${jellyfin.clientInfo?.version}, Jellyfin API: ${Jellyfin.apiVersion}"
+
+        ServerType.SUBSONIC ->
+            "SharkMarmalade: ${jellyfin.clientInfo?.version}"
+    }
 
     fun sendLogs() {
         viewModelScope.launch {

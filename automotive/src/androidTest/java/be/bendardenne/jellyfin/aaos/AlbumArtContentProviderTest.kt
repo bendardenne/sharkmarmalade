@@ -73,7 +73,12 @@ class AlbumArtContentProviderTest {
                         socket.soTimeout = 5000
                         val reader = socket.getInputStream().bufferedReader()
                         val requestLine = reader.readLine()
-                        while (!reader.readLine().isNullOrEmpty()) { }
+                        val headers = generateSequence { reader.readLine() }
+                            .takeWhile { it.isNotEmpty() }.toList()
+                        assertEquals(
+                            listOf("User-Agent: ${SharkMarmaladeConstants.USER_AGENT}"),
+                            headers.filter { it.startsWith("User-Agent:", ignoreCase = true) }
+                        )
                         requestReceived.countDown()
                         check(releaseResponse.await(5, TimeUnit.SECONDS))
                         socket.getOutputStream().write(

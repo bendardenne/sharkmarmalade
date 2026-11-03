@@ -44,11 +44,15 @@ class JellyfinAccountManager(private val accountManager: AccountManager) {
     val isAuthenticated: Boolean
         get() = token != null
 
-    fun storeAccount(server: String, username: String, token: String, serverType: ServerType = ServerType.JELLYFIN): Account {
+    fun storeAccount(
+        server: String,
+        username: String,
+        token: String,
+        serverType: ServerType = ServerType.JELLYFIN
+    ): Account {
         // Find existing account, if any
         var account = accountManager.getAccountsByType(ACCOUNT_TYPE).firstOrNull {
-            accountManager.getUserData(it, USERDATA_SERVER_KEY).equals(server) &&
-                    it.name.equals(username)
+            accountManager.getUserData(it, USERDATA_SERVER_KEY) == server && it.name == username
         }
 
         if (account == null) {
@@ -74,7 +78,7 @@ class JellyfinAccountManager(private val accountManager: AccountManager) {
         account?.let { account ->
             try {
                 accountManager.removeAccountExplicitly(account)
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 // Account might already be removed
             }
         }

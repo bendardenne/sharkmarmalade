@@ -1,5 +1,6 @@
 package be.bendardenne.jellyfin.aaos.api
 
+import be.bendardenne.jellyfin.aaos.UserAgentInterceptor
 import dev.zt64.subsonic.client.SubsonicAuth
 import dev.zt64.subsonic.client.SubsonicClient
 import io.ktor.client.engine.okhttp.OkHttp
@@ -26,7 +27,10 @@ fun createSubsonicApi(
         baseUrl = cleanUrl,
         auth = SubsonicAuth.Token(username, password),
         client = "SharkMarmalade",
-        engine = OkHttp.create { addInterceptor(UnsupportedFieldsInterceptor) }
+        engine = OkHttp.create {
+            addInterceptor(UserAgentInterceptor)
+            addInterceptor(UnsupportedFieldsInterceptor)
+        }
     )
 }
 

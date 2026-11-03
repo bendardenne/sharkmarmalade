@@ -26,7 +26,9 @@ import java.util.concurrent.TimeUnit
  */
 class AlbumArtContentProvider : ContentProvider() {
 
-    private val client = OkHttpClient()
+    private val client = OkHttpClient.Builder()
+        .addInterceptor(UserAgentInterceptor)
+        .build()
 
     companion object {
         private val uriMap = ConcurrentHashMap<Uri, Uri>()

@@ -11,6 +11,7 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
@@ -70,6 +71,12 @@ class JellyfinMusicService : MediaLibraryService() {
 
         accountManager = JellyfinAccountManager(AccountManager.get(applicationContext))
         mediaSourceFactory = DefaultMediaSourceFactory(this)
+            .setDataSourceFactory(
+                DefaultDataSource.Factory(
+                    this,
+                    DefaultHttpDataSource.Factory().setUserAgent(SharkMarmaladeConstants.USER_AGENT)
+                )
+            )
 
         val player = ExoPlayer.Builder(this)
             .setAudioAttributes(AudioAttributes.DEFAULT, true)
@@ -152,10 +159,14 @@ class JellyfinMusicService : MediaLibraryService() {
 
         if (accountManager.serverType == ServerType.JELLYFIN && mediaTree is JellyfinTree) {
             val headers = mediaTree.jellyfinApi.auth(accountManager)
-            val authedFactory = DefaultHttpDataSource.Factory().setDefaultRequestProperties(headers)
+            val authedFactory = DefaultHttpDataSource.Factory()
+                .setUserAgent(SharkMarmaladeConstants.USER_AGENT)
+                .setDefaultRequestProperties(headers)
             mediaSourceFactory.setDataSourceFactory(authedFactory)
         } else {
-            mediaSourceFactory.setDataSourceFactory(DefaultHttpDataSource.Factory())
+            mediaSourceFactory.setDataSourceFactory(
+                DefaultHttpDataSource.Factory().setUserAgent(SharkMarmaladeConstants.USER_AGENT)
+            )
         }
 
         // Trigger a refresh upon login.

@@ -6,7 +6,7 @@ import androidx.media3.common.MediaItem
 import be.bendardenne.jellyfin.aaos.AlbumArtContentProvider
 import be.bendardenne.jellyfin.aaos.MediaItemFactory
 import org.jellyfin.sdk.api.client.ApiClient
-import org.jellyfin.sdk.api.client.extensions.universalAudioApi
+import org.jellyfin.sdk.api.client.extensions.audioApi
 import org.jellyfin.sdk.api.operations.ImageApi
 import org.jellyfin.sdk.model.UUID
 import org.jellyfin.sdk.model.api.BaseItemDto
@@ -53,7 +53,7 @@ class JellyfinItemMapper(
         // When a file is not in this list of containers, it will always be transcoded.
         // This list are containers that I tested.
         val allowedContainers = listOf("flac", "mp3", "m4a", "aac", "ogg")
-        val audioStream = api.universalAudioApi.getUniversalAudioStreamUrl(
+        val audioStream = api.audioApi.getUniversalAudioStreamUrl(
             dto.id,
             container = allowedContainers,
             audioBitRate = bitrate,

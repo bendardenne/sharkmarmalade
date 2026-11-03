@@ -12,7 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jellyfin.sdk.Jellyfin
-import org.jellyfin.sdk.api.client.extensions.clientLogApi
+import org.jellyfin.sdk.api.client.extensions.systemApi
 import java.io.BufferedReader
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -60,7 +60,7 @@ class SettingsFragmentViewModel
                 }
 
                 val content = process.inputStream.bufferedReader().use(BufferedReader::readText)
-                val response = api.clientLogApi.logFile(content)
+                val response = api.systemApi.logFile(content)
 
                 logUploadStatus.postValue("Uploaded ${response.content.fileName}")
             }

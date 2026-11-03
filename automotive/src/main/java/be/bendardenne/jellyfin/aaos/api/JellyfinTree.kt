@@ -21,14 +21,19 @@ import com.google.common.cache.Cache
 import com.google.common.cache.CacheBuilder
 import org.jellyfin.sdk.Jellyfin
 import org.jellyfin.sdk.api.client.ApiClient
-import org.jellyfin.sdk.api.client.extensions.artistsApi
-import org.jellyfin.sdk.api.client.extensions.itemsApi
-import org.jellyfin.sdk.api.client.extensions.playStateApi
-import org.jellyfin.sdk.api.client.extensions.userLibraryApi
+import org.jellyfin.sdk.api.client.extensions.artistApi
+import org.jellyfin.sdk.api.client.extensions.libraryApi
+import org.jellyfin.sdk.api.client.extensions.sessionApi
+import org.jellyfin.sdk.api.client.extensions.userDataApi
 import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.ItemFilter
 import org.jellyfin.sdk.model.api.ItemSortBy
+import org.jellyfin.sdk.model.api.PlayMethod
+import org.jellyfin.sdk.model.api.PlaybackOrder
+import org.jellyfin.sdk.model.api.PlaybackStartInfo
+import org.jellyfin.sdk.model.api.PlaybackStopInfo
+import org.jellyfin.sdk.model.api.RepeatMode
 import org.jellyfin.sdk.model.api.SortOrder
 import org.jellyfin.sdk.model.serializer.toUUID
 
@@ -62,7 +67,7 @@ class JellyfinTree(
                 FAVOURITES -> itemFactory.favourites()
                 PLAYLISTS -> itemFactory.playlists()
                 else -> {
-                    val response = jellyfinApi.userLibraryApi.getItem(id.toUUID())
+                    val response = jellyfinApi.libraryApi.getItem(id.toUUID())
                     mapper.create(response.content)
                 }
             }
@@ -101,7 +106,7 @@ class JellyfinTree(
     }
 
     private suspend fun getLatestAlbums(): List<MediaItem> {
-        val response = jellyfinApi.userLibraryApi.getLatestMedia(
+        val response = jellyfinApi.libraryApi.getLatestMedia(
             includeItemTypes = listOf(BaseItemKind.MUSIC_ALBUM),
             limit = maxItemsPerPage
         )
@@ -110,7 +115,7 @@ class JellyfinTree(
     }
 
     private suspend fun getRandomAlbums(): List<MediaItem> {
-        val response = jellyfinApi.itemsApi.getItems(
+        val response = jellyfinApi.libraryApi.getItems(
             includeItemTypes = listOf(BaseItemKind.MUSIC_ALBUM),
             recursive = true,
             sortBy = listOf(ItemSortBy.RANDOM),
@@ -121,7 +126,7 @@ class JellyfinTree(
     }
 
     private suspend fun getPlaylists(): List<MediaItem> {
-        val response = jellyfinApi.itemsApi.getItems(
+        val response = jellyfinApi.libraryApi.getItems(
             includeItemTypes = listOf(BaseItemKind.PLAYLIST),
             recursive = true,
             sortOrder = listOf(SortOrder.DESCENDING),
@@ -148,7 +153,7 @@ class JellyfinTree(
             sortBy = listOf(ItemSortBy.DEFAULT)
         }
 
-        val response = jellyfinApi.itemsApi.getItems(
+        val response = jellyfinApi.libraryApi.getItems(
             sortBy = sortBy,
             parentId = id.toUUID()
         )
@@ -157,7 +162,7 @@ class JellyfinTree(
     }
 
     private suspend fun getArtistAlbums(id: String): List<MediaItem> {
-        val response = jellyfinApi.itemsApi.getItems(
+        val response = jellyfinApi.libraryApi.getItems(
             sortBy = listOf(
                 ItemSortBy.PARENT_INDEX_NUMBER,
                 ItemSortBy.INDEX_NUMBER,
@@ -172,7 +177,7 @@ class JellyfinTree(
     }
 
     private suspend fun getFavourite(): List<MediaItem> {
-        val response = jellyfinApi.itemsApi.getItems(
+        val response = jellyfinApi.libraryApi.getItems(
             recursive = true,
             filters = listOf(ItemFilter.IS_FAVORITE),
             includeItemTypes = listOf(
@@ -197,14 +202,14 @@ class JellyfinTree(
     override suspend fun search(query: String): List<MediaItem> {
         val items = mutableListOf<MediaItem>()
 
-        var response = jellyfinApi.artistsApi.getAlbumArtists(
+        var response = jellyfinApi.artistApi.getAlbumArtists(
             searchTerm = query,
             limit = 10,
         )
 
         items.addAll(response.content.items.map { cache(it, context.getString(R.string.artists)) })
 
-        response = jellyfinApi.itemsApi.getItems(
+        response = jellyfinApi.libraryApi.getItems(
             recursive = true,
             searchTerm = query,
             includeItemTypes = listOf(BaseItemKind.MUSIC_ALBUM),
@@ -213,16 +218,21 @@ class JellyfinTree(
 
         items.addAll(response.content.items.map { cache(it, context.getString(R.string.albums)) })
 
-        response = jellyfinApi.itemsApi.getItems(
+        response = jellyfinApi.libraryApi.getItems(
             recursive = true,
             searchTerm = query,
             includeItemTypes = listOf(BaseItemKind.PLAYLIST),
             limit = 10
         )
 
-        items.addAll(response.content.items.map { cache(it, context.getString(R.string.playlists)) })
+        items.addAll(response.content.items.map {
+            cache(
+                it,
+                context.getString(R.string.playlists)
+            )
+        })
 
-        response = jellyfinApi.itemsApi.getItems(
+        response = jellyfinApi.libraryApi.getItems(
             recursive = true,
             searchTerm = query,
             includeItemTypes = listOf(BaseItemKind.AUDIO),
@@ -239,10 +249,10 @@ class JellyfinTree(
             val id = mediaId.toUUID()
             if (rating == HeartRating(true)) {
                 Log.i(LOG_MARKER, "Jellyfin: Marking as favorite")
-                jellyfinApi.userLibraryApi.markFavoriteItem(id)
+                jellyfinApi.userDataApi.markFavoriteItem(id)
             } else {
                 Log.i(LOG_MARKER, "Jellyfin: Unmarking as favorite")
-                jellyfinApi.userLibraryApi.unmarkFavoriteItem(id)
+                jellyfinApi.userDataApi.unmarkFavoriteItem(id)
             }
         } catch (e: Exception) {
             Log.e(LOG_MARKER, "Error setting rating in Jellyfin", e)
@@ -251,9 +261,16 @@ class JellyfinTree(
 
     override suspend fun reportPlaybackStart(mediaItem: MediaItem) {
         try {
-            jellyfinApi.playStateApi.onPlaybackStart(
-                mediaItem.mediaId.toUUID(),
-                canSeek = true
+            jellyfinApi.sessionApi.reportPlaybackStart(
+                PlaybackStartInfo(
+                    itemId = mediaItem.mediaId.toUUID(),
+                    isPaused = false,
+                    isMuted = false,
+                    playMethod = PlayMethod.DIRECT_PLAY, // Not accurate
+                    repeatMode = RepeatMode.REPEAT_NONE, // Not accurate
+                    playbackOrder = PlaybackOrder.DEFAULT, // Not accurate
+                    canSeek = true,
+                )
             )
         } catch (e: Exception) {
             Log.e(LOG_MARKER, "Error reporting playback start to Jellyfin", e)
@@ -262,9 +279,12 @@ class JellyfinTree(
 
     override suspend fun reportPlaybackStopped(mediaItem: MediaItem, positionMs: Long) {
         try {
-            jellyfinApi.playStateApi.onPlaybackStopped(
-                mediaItem.mediaId.toUUID(),
-                positionTicks = 10000 * positionMs
+            jellyfinApi.sessionApi.reportPlaybackStopped(
+                PlaybackStopInfo(
+                    itemId = mediaItem.mediaId.toUUID(),
+                    positionTicks = 10000 * positionMs,
+                    failed = false
+                )
             )
         } catch (e: Exception) {
             Log.e(LOG_MARKER, "Error reporting playback stopped to Jellyfin", e)

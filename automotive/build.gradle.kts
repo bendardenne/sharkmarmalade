@@ -8,7 +8,7 @@ plugins {
 
 android {
     namespace = "be.bendardenne.jellyfin.aaos"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "be.bendardenne.jellyfin.aaos"
@@ -62,7 +62,7 @@ dependencies {
     implementation("dev.zt64.subsonic:subsonic-client:1.0.0-beta08")
     implementation("io.ktor:ktor-client-okhttp:3.5.2")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
-    implementation("org.jellyfin.sdk:jellyfin-core:1.8.6")
+    implementation("org.jellyfin.sdk:jellyfin-core:1.9.4")
     implementation("com.google.dagger:hilt-android:2.60.1")
     implementation("org.slf4j:slf4j-api:2.0.17")
     implementation("org.slf4j:slf4j-android:1.7.36")

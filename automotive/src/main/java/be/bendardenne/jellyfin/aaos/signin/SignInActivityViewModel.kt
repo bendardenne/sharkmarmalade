@@ -18,9 +18,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jellyfin.sdk.Jellyfin
 import org.jellyfin.sdk.api.client.extensions.authenticateUserByName
-import org.jellyfin.sdk.api.client.extensions.quickConnectApi
+import org.jellyfin.sdk.api.client.extensions.authenticationApi
 import org.jellyfin.sdk.api.client.extensions.systemApi
-import org.jellyfin.sdk.api.client.extensions.userApi
 import org.jellyfin.sdk.model.api.QuickConnectDto
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.seconds
@@ -86,7 +85,7 @@ class SignInActivityViewModel @Inject constructor() : ViewModel() {
 
         viewModelScope.launch {
             val isEnabled = withContext(Dispatchers.IO) {
-                api.quickConnectApi.getQuickConnectEnabled()
+                api.authenticationApi.getQuickConnectEnabled()
             }
 
             if (isEnabled.status != 200 || !isEnabled.content) {
@@ -95,7 +94,7 @@ class SignInActivityViewModel @Inject constructor() : ViewModel() {
             }
 
             val response = withContext(Dispatchers.IO) {
-                api.quickConnectApi.initiateQuickConnect()
+                api.authenticationApi.initiateQuickConnect()
             }
 
             if (response.status == 200) {
@@ -114,7 +113,7 @@ class SignInActivityViewModel @Inject constructor() : ViewModel() {
     private suspend fun checkQuickConnect(server: String) {
         val api = jellyfin.createApi(server)
         val response = withContext(Dispatchers.IO) {
-            api.quickConnectApi.getQuickConnectState(quickConnectSecret)
+            api.authenticationApi.getQuickConnectState(quickConnectSecret)
         }
 
         Log.d(LOG_MARKER, "Checking QuickConnect")
@@ -125,7 +124,7 @@ class SignInActivityViewModel @Inject constructor() : ViewModel() {
             }
 
             val loginResponse = withContext(Dispatchers.IO) {
-                api.userApi.authenticateWithQuickConnect(QuickConnectDto(response.content.secret))
+                api.authenticationApi.authenticateWithQuickConnect(QuickConnectDto(response.content.secret))
             }
 
             if (loginResponse.status == 200) {
@@ -149,7 +148,7 @@ class SignInActivityViewModel @Inject constructor() : ViewModel() {
             withContext(Dispatchers.IO) {
                 when (serverType) {
                     ServerType.JELLYFIN -> {
-                        val response = jellyfin.createApi(server).userApi.authenticateUserByName(
+                        val response = jellyfin.createApi(server).authenticationApi.authenticateUserByName(
                             username,
                             password
                         )

@@ -9,11 +9,14 @@ import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ProgressBar
+import android.widget.RadioButton
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import be.bendardenne.jellyfin.aaos.R
+import be.bendardenne.jellyfin.aaos.ServerType
 import be.bendardenne.jellyfin.aaos.signin.SignInActivityViewModel.Companion.JELLYFIN_SERVER_URL
+import be.bendardenne.jellyfin.aaos.signin.SignInActivityViewModel.Companion.SERVER_TYPE_KEY
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.launch
 
@@ -21,6 +24,7 @@ import kotlinx.coroutines.launch
 class ServerSignInFragment : Fragment() {
 
     private lateinit var serverInput: EditText
+    private lateinit var radioSubsonic: RadioButton
     private lateinit var submitServer: Button
     private lateinit var progressBar: ProgressBar
     private lateinit var viewModel: SignInActivityViewModel
@@ -38,6 +42,7 @@ class ServerSignInFragment : Fragment() {
         viewModel = ViewModelProvider(requireActivity())[SignInActivityViewModel::class.java]
 
         serverInput = view.findViewById(R.id.server_uri)
+        radioSubsonic = view.findViewById(R.id.radio_subsonic)
         submitServer = view.findViewById(R.id.submit_server_button)
         progressBar = view.findViewById(R.id.progress_bar)
 
@@ -46,11 +51,13 @@ class ServerSignInFragment : Fragment() {
             if (!TextUtils.isEmpty(serverUrl)) {
                 progressBar.visibility = View.VISIBLE
 
+                val serverType = if (radioSubsonic.isChecked) ServerType.SUBSONIC else ServerType.JELLYFIN
+
                 viewLifecycleOwner.lifecycleScope.launch {
-                    val pingServer = viewModel.pingServer(serverUrl.toString())
+                    val pingServer = viewModel.pingServer(serverUrl.toString(), serverType)
 
                     if (pingServer) {
-                        signInToServer(serverUrl)
+                        signInToServer(serverUrl, serverType)
                     } else {
                         progressBar.visibility = View.INVISIBLE
                         Snackbar.make(view, R.string.server_unreachable, Snackbar.LENGTH_LONG)
@@ -61,9 +68,11 @@ class ServerSignInFragment : Fragment() {
         }
     }
 
-    private fun signInToServer(serverUrl: Editable) {
-        val args = Bundle()
-        args.putString(JELLYFIN_SERVER_URL, serverUrl.toString())
+    private fun signInToServer(serverUrl: Editable, serverType: ServerType) {
+        val args = Bundle().apply {
+            putString(JELLYFIN_SERVER_URL, serverUrl.toString())
+            putString(SERVER_TYPE_KEY, serverType.name)
+        }
         val fragment = UsernamePasswordSignInFragment()
         fragment.arguments = args
 

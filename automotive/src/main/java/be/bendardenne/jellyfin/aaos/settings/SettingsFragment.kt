@@ -18,6 +18,7 @@ import kotlinx.coroutines.launch
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import be.bendardenne.jellyfin.aaos.R
+import be.bendardenne.jellyfin.aaos.ServerType
 import be.bendardenne.jellyfin.aaos.signin.SignInActivity
 import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
@@ -34,17 +35,20 @@ class SettingsFragment : PreferenceFragmentCompat() {
         val version = findPreference<Preference>("version")
         version?.summary = viewModel.versionString()
 
-        findPreference<Preference>("server_url")?.summary = viewModel.serverUrl()
+        findPreference<Preference>("server_url")?.summary =
+            "${viewModel.serverUrl()} (${viewModel.serverType()})"
+
         findPreference<Preference>("username")?.summary = viewModel.username()
 
         val uploadLogs = findPreference<Preference>("upload_logs")
-        uploadLogs?.onPreferenceClickListener = Preference.OnPreferenceClickListener { pref ->
+        uploadLogs?.isVisible = viewModel.serverType() == ServerType.JELLYFIN
+        uploadLogs?.onPreferenceClickListener = Preference.OnPreferenceClickListener {
             viewModel.sendLogs()
             true
         }
 
         val logout = findPreference<Preference>("logout")
-        logout?.onPreferenceClickListener = Preference.OnPreferenceClickListener { pref ->
+        logout?.onPreferenceClickListener = Preference.OnPreferenceClickListener {
             logout()
             true
         }

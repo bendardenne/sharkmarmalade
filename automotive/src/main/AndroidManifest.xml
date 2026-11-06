@@ -47,7 +47,8 @@
 
         <activity
             android:name=".signin.SignInActivity"
-            android:exported="true">
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.ACTION_SIGN_IN" />
             </intent-filter>

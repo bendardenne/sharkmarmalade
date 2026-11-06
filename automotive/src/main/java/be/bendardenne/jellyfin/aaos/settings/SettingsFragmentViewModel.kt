@@ -4,6 +4,7 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import be.bendardenne.jellyfin.aaos.JellyfinAccountManager
+import be.bendardenne.jellyfin.aaos.ServerType
 import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.LOG_MARKER
 import be.bendardenne.jellyfin.aaos.auth
 import com.google.common.base.Strings
@@ -12,7 +13,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jellyfin.sdk.Jellyfin
-import org.jellyfin.sdk.api.client.extensions.clientLogApi
+import org.jellyfin.sdk.api.client.extensions.systemApi
 import java.io.BufferedReader
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -32,8 +33,15 @@ class SettingsFragmentViewModel
 
     fun username(): String? = accountManager.username
 
-    fun versionString(): CharSequence =
-        "SharkMarmalade: ${jellyfin.clientInfo?.version}, Jellyfin API: ${Jellyfin.apiVersion}"
+    fun serverType(): ServerType = accountManager.serverType
+
+    fun versionString(): CharSequence = when (serverType()) {
+        ServerType.JELLYFIN ->
+            "SharkMarmalade: ${jellyfin.clientInfo?.version}, Jellyfin API: ${Jellyfin.apiVersion}"
+
+        ServerType.SUBSONIC ->
+            "SharkMarmalade: ${jellyfin.clientInfo?.version}"
+    }
 
     fun sendLogs() {
         viewModelScope.launch {
@@ -60,7 +68,7 @@ class SettingsFragmentViewModel
                 }
 
                 val content = process.inputStream.bufferedReader().use(BufferedReader::readText)
-                val response = api.clientLogApi.logFile(content)
+                val response = api.systemApi.logFile(content)
 
                 logUploadStatus.postValue("Uploaded ${response.content.fileName}")
             }

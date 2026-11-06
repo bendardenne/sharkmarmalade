@@ -18,7 +18,6 @@ import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaConstants.EXTRAS_KEY_ERROR_RESOLUTION_ACTION_INTENT_COMPAT
 import androidx.media3.session.MediaConstants.EXTRAS_KEY_ERROR_RESOLUTION_ACTION_LABEL_COMPAT
 import androidx.media3.session.MediaConstants.EXTRAS_KEY_ERROR_RESOLUTION_USING_CAR_APP_LIBRARY_INTENT_COMPAT
-import androidx.media3.session.MediaConstants.EXTRAS_KEY_MEDIA_ART_SIZE_PIXELS
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSession.ConnectionResult
@@ -35,15 +34,15 @@ import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.ROOT_ID
 import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.LOG_MARKER
 import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.PREF_ALBUM_BEHAVIOUR
 import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.PREF_BITRATE
+import be.bendardenne.jellyfin.aaos.api.MediaTree
+import be.bendardenne.jellyfin.aaos.api.MediaTreeFactory
 import be.bendardenne.jellyfin.aaos.signin.SignInActivity
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import org.jellyfin.sdk.api.client.ApiClient
-import org.jellyfin.sdk.api.client.extensions.userLibraryApi
-import org.jellyfin.sdk.model.serializer.toUUID
 import kotlin.collections.listOf
 
 
@@ -51,8 +50,12 @@ import kotlin.collections.listOf
 class JellyfinMediaLibrarySessionCallback(
     private val service: JellyfinMusicService,
     private val accountManager: JellyfinAccountManager,
-    private val jellyfinApi: ApiClient
+    private val mediaTreeFactory: MediaTreeFactory
 ) : MediaLibraryService.MediaLibrarySession.Callback {
+
+    // Resolved on each access: the server type may change after login, so never cache the instance.
+    private val mediaTree: MediaTree
+        get() = mediaTreeFactory.getTree()
 
     companion object {
         const val LOGIN_COMMAND = "be.bendardenne.jellyfin.aaos.COMMAND.LOGIN"
@@ -62,22 +65,20 @@ class JellyfinMediaLibrarySessionCallback(
 
         const val PLAYLIST_IDS_PREF = "playlistIds"
         const val PLAYLIST_INDEX_PREF = "playlistIndex"
-        const val PLAYLIST_TRACK_POSITON_MS_PREF = "playlistTrackPositionMs"
+        const val PLAYLIST_TRACK_POSITION_MS_PREF = "playlistTrackPositionMs"
     }
-
-    private lateinit var tree: JellyfinMediaTree;
 
     private val subscriptions:
             MutableMap<MediaLibraryService.MediaLibrarySession, MutableSet<String>> = mutableMapOf()
 
     // Listener must be kept in a field to prevent GC (weak referenced by SharedPref.)
     private val prefListener: SharedPreferences.OnSharedPreferenceChangeListener =
-        SharedPreferences.OnSharedPreferenceChangeListener { p, key ->
+        SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             if (key == PREF_ALBUM_BEHAVIOUR || key == PREF_BITRATE) {
                 Log.i(LOG_MARKER, "Preferences invalidated")
 
                 // Clear the item cache on any setting impacting the media items.
-                tree.evictCache()
+                mediaTree.evictCache()
                 // And force Sessions to refetch the new items.
                 subscriptions.forEach { session ->
                     subscriptions[session.key]!!.forEach { item ->
@@ -97,9 +98,7 @@ class JellyfinMediaLibrarySessionCallback(
      * A new login may be against a different server, so nothing cached may survive.
      */
     private fun invalidateAll(session: MediaLibraryService.MediaLibrarySession) {
-        if (::tree.isInitialized) {
-            tree.evictCache()
-        }
+        mediaTree.evictCache()
 
         val ids = setOf(ROOT_ID, LATEST_ALBUMS, RANDOM_ALBUMS, FAVOURITES, PLAYLISTS) +
                 subscriptions.values.flatten()
@@ -111,9 +110,9 @@ class JellyfinMediaLibrarySessionCallback(
         controller: MediaSession.ControllerInfo
     ): ConnectionResult {
         Log.i(LOG_MARKER, "onConnect")
-        val connectionResult = super.onConnect(session, controller)
+        val resultBuilder = ConnectionResult.AcceptedResultBuilder(session, controller)
 
-        val sessionCommands = connectionResult.availableSessionCommands
+        val sessionCommands = resultBuilder.build().availableSessionCommands
             .buildUpon()
             .add(SessionCommand(LOGIN_COMMAND, Bundle()))
             .add(SessionCommand(LOGOUT_COMMAND, Bundle()))
@@ -121,10 +120,8 @@ class JellyfinMediaLibrarySessionCallback(
             .add(SessionCommand(SHUFFLE_COMMAND, Bundle()))
             .build()
 
-        return ConnectionResult.accept(
-            sessionCommands,
-            connectionResult.availablePlayerCommands
-        )
+        resultBuilder.setAvailableSessionCommands(sessionCommands)
+        return resultBuilder.build()
     }
 
     override fun onSubscribe(
@@ -148,16 +145,6 @@ class JellyfinMediaLibrarySessionCallback(
         return super.onUnsubscribe(session, browser, parentId)
     }
 
-    @Synchronized
-    private fun ensureTree(params: MediaLibraryService.LibraryParams?) {
-        if (!::tree.isInitialized) {
-            val artSize = params?.extras?.getInt(EXTRAS_KEY_MEDIA_ART_SIZE_PIXELS) ?: 512
-            Log.d(LOG_MARKER, "Art size hint from system: $artSize")
-
-            val itemFactory = MediaItemFactory(service, jellyfinApi, artSize)
-            tree = JellyfinMediaTree(service, jellyfinApi, itemFactory)
-        }
-    }
 
     override fun onGetLibraryRoot(
         session: MediaLibraryService.MediaLibrarySession,
@@ -166,11 +153,11 @@ class JellyfinMediaLibrarySessionCallback(
     ): ListenableFuture<LibraryResult<MediaItem>> {
         Log.i(LOG_MARKER, "onGetRoot")
 
-        ensureTree(params)
-
-        return SuspendToFutureAdapter.launchFuture {
+        // Legacy browsers (e.g. Media Center) block the main thread until this future completes,
+        // so it must not resume on Dispatchers.Main or it deadlocks.
+        return SuspendToFutureAdapter.launchFuture(Dispatchers.IO) {
             LibraryResult.ofItem(
-                tree.getItem(ROOT_ID),
+                mediaTree.getItem(ROOT_ID),
                 params
             )
         }
@@ -199,7 +186,7 @@ class JellyfinMediaLibrarySessionCallback(
         }
 
         return SuspendToFutureAdapter.launchFuture {
-            LibraryResult.ofItemList(tree.getChildren(parentId), params)
+            LibraryResult.ofItemList(mediaTree.getChildren(parentId), params)
         }
     }
 
@@ -233,7 +220,7 @@ class JellyfinMediaLibrarySessionCallback(
         Log.i(LOG_MARKER, "onGetItem $mediaId")
         return SuspendToFutureAdapter.launchFuture {
             LibraryResult.ofItem(
-                tree.getItem(mediaId),
+                mediaTree.getItem(mediaId),
                 null
             )
         }
@@ -295,13 +282,13 @@ class JellyfinMediaLibrarySessionCallback(
 
     private suspend fun isSingleItemWithParent(mediaItems: List<MediaItem>): Boolean {
         return mediaItems.size == 1 &&
-                tree.getItem(mediaItems[0].mediaId).mediaMetadata.extras?.containsKey(PARENT_KEY) == true
+                mediaTree.getItem(mediaItems[0].mediaId).mediaMetadata.extras?.containsKey(PARENT_KEY) == true
     }
 
     private suspend fun expandSingleItem(item: MediaItem): List<MediaItem> {
         // This could load a lot of tracks if the parent has many children.
-        val parentId = tree.getItem(item.mediaId).mediaMetadata.extras?.getString(PARENT_KEY)!!
-        return resolveMediaItems(tree.getChildren(parentId))
+        val parentId = mediaTree.getItem(item.mediaId).mediaMetadata.extras?.getString(PARENT_KEY)!!
+        return resolveMediaItems(mediaTree.getChildren(parentId))
     }
 
     /**
@@ -313,14 +300,14 @@ class JellyfinMediaLibrarySessionCallback(
 
         mediaItems.forEach {
             // We need to call getItem to resolve the full item: the provided MediaItem only has an ID.
-            val item = tree.getItem(it.mediaId)
+            val item = mediaTree.getItem(it.mediaId)
             // If the item is an album or playlist, get its children and add them to the playlist.
             // Albums and playlists are "immediately playable" items, that actually load their
             // children (tracks).
             if (item.mediaMetadata.mediaType == MediaMetadata.MEDIA_TYPE_ALBUM ||
                 item.mediaMetadata.mediaType == MediaMetadata.MEDIA_TYPE_PLAYLIST
             ) {
-                resolveMediaItems(tree.getChildren(item.mediaId)).forEach(playlist::add)
+                resolveMediaItems(mediaTree.getChildren(item.mediaId)).forEach(playlist::add)
             } else if (item.mediaMetadata.isPlayable == true) {
                 playlist.add(item)
             } else {
@@ -337,9 +324,8 @@ class JellyfinMediaLibrarySessionCallback(
         query: String,
         params: MediaLibraryService.LibraryParams?
     ): ListenableFuture<LibraryResult<Void>> {
-        ensureTree(params)
         return SuspendToFutureAdapter.launchFuture {
-            val results = tree.search(query).size
+            val results = mediaTree.search(query).size
             session.notifySearchResultChanged(browser, query, results, params)
             LibraryResult.ofVoid(params)
         }
@@ -353,9 +339,8 @@ class JellyfinMediaLibrarySessionCallback(
         pageSize: Int,
         params: MediaLibraryService.LibraryParams?
     ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
-        ensureTree(params)
         return SuspendToFutureAdapter.launchFuture {
-            val results = tree.search(query)
+            val results = mediaTree.search(query)
             LibraryResult.ofItemList(results, params)
         }
     }
@@ -365,14 +350,13 @@ class JellyfinMediaLibrarySessionCallback(
         controller: MediaSession.ControllerInfo,
         isForPlayback: Boolean
     ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
-        ensureTree(null)
         return SuspendToFutureAdapter.launchFuture {
             val prefs = PreferenceManager.getDefaultSharedPreferences(service)
 
             val mediaItemsToRestore = prefs
                 .getString(PLAYLIST_IDS_PREF, "")
                 ?.split(",")
-                ?.map { async { tree.getItem(it) } }
+                ?.map { async { mediaTree.getItem(it) } }
                 ?.awaitAll() ?: listOf()
 
             Log.d(LOG_MARKER, "Resuming playback with $mediaItemsToRestore")
@@ -380,7 +364,7 @@ class JellyfinMediaLibrarySessionCallback(
             MediaSession.MediaItemsWithStartPosition(
                 mediaItemsToRestore,
                 prefs.getInt(PLAYLIST_INDEX_PREF, 0),
-                prefs.getLong(PLAYLIST_TRACK_POSITON_MS_PREF, 0),
+                prefs.getLong(PLAYLIST_TRACK_POSITION_MS_PREF, 0),
             )
         }
     }
@@ -438,20 +422,8 @@ class JellyfinMediaLibrarySessionCallback(
         }
 
         return SuspendToFutureAdapter.launchFuture {
-            applyRating(mediaId, rating)
+            mediaTree.setRating(mediaId, rating)
             SessionResult(SessionResult.RESULT_SUCCESS)
-        }
-    }
-
-    private suspend fun applyRating(currentMediaItem: String, newRating: Rating) {
-        val id = currentMediaItem.toUUID()
-
-        if (newRating == HeartRating(true)) {
-            Log.i(LOG_MARKER, "Marking as favorite")
-            jellyfinApi.userLibraryApi.markFavoriteItem(id)
-        } else {
-            Log.i(LOG_MARKER, "Unmarking as favorite")
-            jellyfinApi.userLibraryApi.unmarkFavoriteItem(id)
         }
     }
 }

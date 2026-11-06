@@ -11,6 +11,7 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
@@ -18,14 +19,13 @@ import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
 import androidx.preference.PreferenceManager
 import be.bendardenne.jellyfin.aaos.JellyfinMediaLibrarySessionCallback.Companion.PLAYLIST_INDEX_PREF
-import be.bendardenne.jellyfin.aaos.JellyfinMediaLibrarySessionCallback.Companion.PLAYLIST_TRACK_POSITON_MS_PREF
+import be.bendardenne.jellyfin.aaos.JellyfinMediaLibrarySessionCallback.Companion.PLAYLIST_TRACK_POSITION_MS_PREF
 import be.bendardenne.jellyfin.aaos.MediaItemFactory.Companion.ROOT_ID
 import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.LOG_MARKER
+import be.bendardenne.jellyfin.aaos.api.JellyfinTree
+import be.bendardenne.jellyfin.aaos.api.MediaTreeFactory
 import dagger.hilt.android.AndroidEntryPoint
 import org.jellyfin.sdk.Jellyfin
-import org.jellyfin.sdk.api.client.ApiClient
-import org.jellyfin.sdk.api.client.extensions.playStateApi
-import org.jellyfin.sdk.model.serializer.toUUID
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -35,8 +35,10 @@ class JellyfinMusicService : MediaLibraryService() {
     @Inject
     lateinit var jellyfin: Jellyfin
 
+    @Inject
+    lateinit var mediaTreeFactory: MediaTreeFactory
+
     private lateinit var accountManager: JellyfinAccountManager
-    private lateinit var jellyfinApi: ApiClient
     private lateinit var mediaSourceFactory: DefaultMediaSourceFactory
     private lateinit var mediaLibrarySession: MediaLibrarySession
     private lateinit var callback: JellyfinMediaLibrarySessionCallback
@@ -68,8 +70,13 @@ class JellyfinMusicService : MediaLibraryService() {
         Log.i(LOG_MARKER, "onCreate")
 
         accountManager = JellyfinAccountManager(AccountManager.get(applicationContext))
-        jellyfinApi = jellyfin.createApi()
         mediaSourceFactory = DefaultMediaSourceFactory(this)
+            .setDataSourceFactory(
+                DefaultDataSource.Factory(
+                    this,
+                    DefaultHttpDataSource.Factory().setUserAgent(SharkMarmaladeConstants.USER_AGENT)
+                )
+            )
 
         val player = ExoPlayer.Builder(this)
             .setAudioAttributes(AudioAttributes.DEFAULT, true)
@@ -85,7 +92,7 @@ class JellyfinMusicService : MediaLibraryService() {
         // https://proandroiddev.com/mastering-playback-state-with-exo-player-977016aa5003
         pollForPlaybackStatus(player)
 
-        callback = JellyfinMediaLibrarySessionCallback(this, accountManager, jellyfinApi)
+        callback = JellyfinMediaLibrarySessionCallback(this, accountManager, mediaTreeFactory)
 
         mediaLibrarySession = MediaLibrarySession.Builder(this, player, callback)
             .setMediaButtonPreferences(CommandButtons.createButtons(player))
@@ -105,7 +112,7 @@ class JellyfinMusicService : MediaLibraryService() {
                 currentTrack = player.currentMediaItem
 
                 PreferenceManager.getDefaultSharedPreferences(this@JellyfinMusicService).edit {
-                    putLong(PLAYLIST_TRACK_POSITON_MS_PREF, currentPlaybackTime)
+                    putLong(PLAYLIST_TRACK_POSITION_MS_PREF, currentPlaybackTime)
                 }
             }
 
@@ -142,15 +149,25 @@ class JellyfinMusicService : MediaLibraryService() {
         PreferenceManager.getDefaultSharedPreferences(this).edit {
             remove(JellyfinMediaLibrarySessionCallback.PLAYLIST_IDS_PREF)
             remove(PLAYLIST_INDEX_PREF)
-            remove(PLAYLIST_TRACK_POSITON_MS_PREF)
+            remove(PLAYLIST_TRACK_POSITION_MS_PREF)
         }
     }
 
     fun onLogin() {
-        val headers = jellyfinApi.auth(accountManager)
+        val mediaTree = mediaTreeFactory.getTree()
+        mediaTree.onLogin()
 
-        val authedFactory = DefaultHttpDataSource.Factory().setDefaultRequestProperties(headers)
-        mediaSourceFactory.setDataSourceFactory(authedFactory)
+        if (accountManager.serverType == ServerType.JELLYFIN && mediaTree is JellyfinTree) {
+            val headers = mediaTree.jellyfinApi.auth(accountManager)
+            val authedFactory = DefaultHttpDataSource.Factory()
+                .setUserAgent(SharkMarmaladeConstants.USER_AGENT)
+                .setDefaultRequestProperties(headers)
+            mediaSourceFactory.setDataSourceFactory(authedFactory)
+        } else {
+            mediaSourceFactory.setDataSourceFactory(
+                DefaultHttpDataSource.Factory().setUserAgent(SharkMarmaladeConstants.USER_AGENT)
+            )
+        }
 
         // Trigger a refresh upon login.
         mediaLibrarySession.notifyChildrenChanged(ROOT_ID, 4, null)
@@ -158,13 +175,11 @@ class JellyfinMusicService : MediaLibraryService() {
 
     private suspend fun reportPlayback(player: Player) {
         val exoPlayer = player as ExoPlayer
-        // MediaItem has changed; if there was a previous item playing, mark it stopped.
+        val mediaTree = mediaTreeFactory.getTree()
+
         if (currentTrack != null) {
             Log.i(LOG_MARKER, "Reporting playback stopped: ${currentPlaybackTime}")
-            jellyfinApi.playStateApi.onPlaybackStopped(
-                currentTrack!!.mediaId.toUUID(),
-                positionTicks = 10000 * currentPlaybackTime
-            )
+            mediaTree.reportPlaybackStopped(currentTrack!!, currentPlaybackTime)
         }
 
         if (player.currentMediaItem != null) {
@@ -175,10 +190,7 @@ class JellyfinMusicService : MediaLibraryService() {
                 LOG_MARKER,
                 "Playing $formatString: ${exoPlayer.currentMediaItem?.localConfiguration?.uri}"
             )
-            jellyfinApi.playStateApi.onPlaybackStart(
-                player.currentMediaItem!!.mediaId.toUUID(),
-                canSeek = true
-            )
+            mediaTree.reportPlaybackStart(player.currentMediaItem!!)
         }
     }
 }

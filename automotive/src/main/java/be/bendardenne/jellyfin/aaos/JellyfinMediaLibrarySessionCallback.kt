@@ -40,6 +40,7 @@ import be.bendardenne.jellyfin.aaos.signin.SignInActivity
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlin.collections.listOf
@@ -109,9 +110,9 @@ class JellyfinMediaLibrarySessionCallback(
         controller: MediaSession.ControllerInfo
     ): ConnectionResult {
         Log.i(LOG_MARKER, "onConnect")
-        val connectionResult = super.onConnect(session, controller)
+        val resultBuilder = ConnectionResult.AcceptedResultBuilder(session, controller)
 
-        val sessionCommands = connectionResult.availableSessionCommands
+        val sessionCommands = resultBuilder.build().availableSessionCommands
             .buildUpon()
             .add(SessionCommand(LOGIN_COMMAND, Bundle()))
             .add(SessionCommand(LOGOUT_COMMAND, Bundle()))
@@ -119,10 +120,8 @@ class JellyfinMediaLibrarySessionCallback(
             .add(SessionCommand(SHUFFLE_COMMAND, Bundle()))
             .build()
 
-        return ConnectionResult.accept(
-            sessionCommands,
-            connectionResult.availablePlayerCommands
-        )
+        resultBuilder.setAvailableSessionCommands(sessionCommands)
+        return resultBuilder.build()
     }
 
     override fun onSubscribe(

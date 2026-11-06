@@ -1,9 +1,13 @@
 package be.bendardenne.jellyfin.aaos.api
 
 import be.bendardenne.jellyfin.aaos.UserAgentInterceptor
+import dev.zt64.subsonic.api.model.SubsonicErrorCode
+import dev.zt64.subsonic.api.model.SubsonicException
 import dev.zt64.subsonic.client.SubsonicAuth
 import dev.zt64.subsonic.client.SubsonicClient
+import io.ktor.client.HttpClientConfig
 import io.ktor.client.engine.okhttp.OkHttp
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -11,11 +15,43 @@ import kotlinx.serialization.json.JsonObject
 import okhttp3.Interceptor
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
+import java.io.IOException
+import kotlin.time.Duration.Companion.seconds
+
+/**
+ * Checks the Subsonic endpoint before credentials are available. Authentication errors prove
+ * reachability; protocol, decoding and transport errors still fail the check.
+ */
+internal suspend fun pingSubsonicServer(serverUrl: String) {
+    val reachable = withTimeoutOrNull(10.seconds) {
+        createSubsonicApi(serverUrl, clientConfig = { expectSuccess = true }).use { api ->
+            try {
+                api.ping()
+            } catch (e: SubsonicException) {
+                // These errors indicated that the server is reachable and the ping is successful
+                // (it's only complaining that authentication is missing).
+                when (e.code) {
+                    SubsonicErrorCode.REQUIRED_PARAMETER_MISSING,
+                    SubsonicErrorCode.WRONG_USERNAME_OR_PASSWORD,
+                    SubsonicErrorCode.TOKEN_AUTH_NOT_SUPPORTED_LDAP,
+                    SubsonicErrorCode.AUTH_METHOD_NOT_SUPPORTED,
+                    SubsonicErrorCode.UNAUTHORIZED -> Unit
+                    else -> throw e
+                }
+            }
+        }
+        true
+    }
+    if (reachable == null) {
+        throw IOException("Subsonic ping timed out after 10 seconds")
+    }
+}
 
 fun createSubsonicApi(
     serverUrl: String,
     username: String = "",
-    password: String = ""
+    password: String = "",
+    clientConfig: HttpClientConfig<*>.() -> Unit = {}
 ): SubsonicClient {
     var cleanUrl = serverUrl.trim()
     if (!cleanUrl.startsWith("http://") && !cleanUrl.startsWith("https://")) {
@@ -30,7 +66,8 @@ fun createSubsonicApi(
         engine = OkHttp.create {
             addInterceptor(UserAgentInterceptor)
             addInterceptor(UnsupportedFieldsInterceptor)
-        }
+        },
+        clientConfig = clientConfig
     )
 }
 

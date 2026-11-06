@@ -10,7 +10,9 @@ import be.bendardenne.jellyfin.aaos.ServerType
 import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.LOG_MARKER
 import be.bendardenne.jellyfin.aaos.api.MediaTreeFactory
 import be.bendardenne.jellyfin.aaos.api.createSubsonicApi
+import be.bendardenne.jellyfin.aaos.api.pingSubsonicServer
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -59,20 +61,13 @@ class SignInActivityViewModel @Inject constructor() : ViewModel() {
                     }
 
                     ServerType.SUBSONIC -> {
+                        pingSubsonicServer(serverUrl)
                         true
-                        // TODO
-                      /*  try {
-                            createSubsonicApi(serverUrl).use { api ->
-                                api.ping()
-                            }
-                            true
-                        } catch (e: Exception) {
-                            Log.w(LOG_MARKER, "Subsonic ping failed", e)
-                            false
-                        }*/
                     }
                 }
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.w(LOG_MARKER, "Error", e)
             false

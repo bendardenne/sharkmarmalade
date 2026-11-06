@@ -19,6 +19,8 @@ import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.LOG_MARKER
 import be.bendardenne.jellyfin.aaos.auth
 import com.google.common.cache.Cache
 import com.google.common.cache.CacheBuilder
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.jellyfin.sdk.Jellyfin
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.extensions.artistApi
@@ -57,7 +59,7 @@ class JellyfinTree(
         jellyfinApi.auth(accountManager)
     }
 
-    override suspend fun getItem(id: String): MediaItem {
+    override suspend fun getItem(id: String): MediaItem = withContext(Dispatchers.IO) {
         if (mediaItems.getIfPresent(id) == null) {
             // Cache miss
             val newItem = when (id) {
@@ -75,11 +77,11 @@ class JellyfinTree(
             mediaItems.put(id, newItem)
         }
 
-        return mediaItems.getIfPresent(id)!!
+        mediaItems.getIfPresent(id)!!
     }
 
-    override suspend fun getChildren(id: String): List<MediaItem> {
-        return when (id) {
+    override suspend fun getChildren(id: String): List<MediaItem> = withContext(Dispatchers.IO) {
+        when (id) {
             ROOT_ID -> listOf(
                 getItem(LATEST_ALBUMS),
                 getItem(RANDOM_ALBUMS),
@@ -199,7 +201,7 @@ class JellyfinTree(
                 context.getString(R.string.tracks)
             )
 
-    override suspend fun search(query: String): List<MediaItem> {
+    override suspend fun search(query: String): List<MediaItem> = withContext(Dispatchers.IO) {
         val items = mutableListOf<MediaItem>()
 
         var response = jellyfinApi.artistApi.getAlbumArtists(
@@ -241,10 +243,10 @@ class JellyfinTree(
 
         items.addAll(response.content.items.map { cache(it, context.getString(R.string.tracks)) })
 
-        return items
+        items
     }
 
-    override suspend fun setRating(mediaId: String, rating: Rating) {
+    override suspend fun setRating(mediaId: String, rating: Rating): Unit = withContext(Dispatchers.IO) {
         try {
             val id = mediaId.toUUID()
             if (rating == HeartRating(true)) {
@@ -259,7 +261,7 @@ class JellyfinTree(
         }
     }
 
-    override suspend fun reportPlaybackStart(mediaItem: MediaItem) {
+    override suspend fun reportPlaybackStart(mediaItem: MediaItem): Unit = withContext(Dispatchers.IO) {
         try {
             jellyfinApi.sessionApi.reportPlaybackStart(
                 PlaybackStartInfo(
@@ -277,7 +279,7 @@ class JellyfinTree(
         }
     }
 
-    override suspend fun reportPlaybackStopped(mediaItem: MediaItem, positionMs: Long) {
+    override suspend fun reportPlaybackStopped(mediaItem: MediaItem, positionMs: Long): Unit = withContext(Dispatchers.IO) {
         try {
             jellyfinApi.sessionApi.reportPlaybackStopped(
                 PlaybackStopInfo(

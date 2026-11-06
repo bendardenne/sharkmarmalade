@@ -153,7 +153,9 @@ class JellyfinMediaLibrarySessionCallback(
     ): ListenableFuture<LibraryResult<MediaItem>> {
         Log.i(LOG_MARKER, "onGetRoot")
 
-        return SuspendToFutureAdapter.launchFuture {
+        // Legacy browsers (e.g. Media Center) block the main thread until this future completes,
+        // so it must not resume on Dispatchers.Main or it deadlocks.
+        return SuspendToFutureAdapter.launchFuture(Dispatchers.IO) {
             LibraryResult.ofItem(
                 mediaTree.getItem(ROOT_ID),
                 params

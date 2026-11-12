@@ -16,20 +16,13 @@ import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.EXPAND
 import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.PLAY
 import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.PREF_ALBUM_BEHAVIOUR
 import be.bendardenne.jellyfin.aaos.SharkMarmaladeConstants.PREF_BITRATE
-import org.jellyfin.sdk.api.client.ApiClient
-import org.jellyfin.sdk.api.client.extensions.universalAudioApi
-import org.jellyfin.sdk.api.operations.ImageApi
-import org.jellyfin.sdk.model.UUID
-import org.jellyfin.sdk.model.api.BaseItemDto
-import org.jellyfin.sdk.model.api.BaseItemKind
-import org.jellyfin.sdk.model.api.ImageType
 
+/**
+ * Server-agnostic factory of [MediaItem]s. Server-specific trees map their own models onto
+ * the parameters of these builders.
+ */
 @OptIn(UnstableApi::class)
-class MediaItemFactory(
-    private val context: Context,
-    private val jellyfinApi: ApiClient,
-    private val artSize: Int
-) {
+class MediaItemFactory(private val context: Context) {
 
     companion object {
         const val ROOT_ID = "ROOT_ID"
@@ -38,6 +31,15 @@ class MediaItemFactory(
         const val FAVOURITES = "FAVOURITES_ID"
         const val PLAYLISTS = "PLAYLISTS_ID"
         const val PARENT_KEY = "PARENT_KEY"
+    }
+
+    /** The bitrate chosen in the preferences, or null for direct streaming. */
+    fun preferredBitrate(): Int? {
+        val preference = PreferenceManager
+            .getDefaultSharedPreferences(context)
+            .getString(PREF_BITRATE, DIRECT_STREAM)!!
+
+        return if (preference == DIRECT_STREAM) null else preference.toInt()
     }
 
     fun rootNode(): MediaItem {
@@ -61,7 +63,6 @@ class MediaItemFactory(
     fun randomAlbums(): MediaItem {
         return albumCategory(RANDOM_ALBUMS, "Random", "casino")
     }
-
 
     private fun albumCategory(id: String, label: String, icon: String): MediaItem {
         val extras = Bundle()
@@ -133,12 +134,22 @@ class MediaItemFactory(
             .build()
     }
 
-    private fun forArtist(item: BaseItemDto, group: String? = null): MediaItem {
+    private fun groupExtras(group: String?): Bundle {
         val extras = Bundle()
         if (group != null) {
             extras.putString(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_GROUP_TITLE, group)
         }
+        return extras
+    }
 
+    fun artist(
+        id: String,
+        name: String?,
+        artworkUri: Uri?,
+        albumArtist: String? = null,
+        group: String? = null
+    ): MediaItem {
+        val extras = groupExtras(group)
         extras.putInt(
             MediaConstants.EXTRAS_KEY_CONTENT_STYLE_PLAYABLE,
             MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM
@@ -149,157 +160,103 @@ class MediaItemFactory(
         )
 
         val metadata = MediaMetadata.Builder()
-            .setTitle(item.name)
-            .setAlbumArtist(item.albumArtist)
+            .setTitle(name)
+            .setAlbumArtist(albumArtist)
             .setIsBrowsable(true)
             .setIsPlayable(false)
-            .setArtworkUri(artUri(item.id))
+            .setArtworkUri(artworkUri)
             .setMediaType(MediaMetadata.MEDIA_TYPE_ARTIST)
             .setExtras(extras)
             .build()
 
         return MediaItem.Builder()
-            .setMediaId(item.id.toString())
+            .setMediaId(id)
             .setMediaMetadata(metadata)
             .build()
     }
 
-    private fun forAlbum(item: BaseItemDto, group: String? = null): MediaItem {
-        val extras = Bundle()
-        if (group != null) {
-            extras.putString(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_GROUP_TITLE, group)
-        }
-
+    fun album(
+        id: String,
+        title: String?,
+        albumArtist: String?,
+        artworkUri: Uri?,
+        group: String? = null
+    ): MediaItem {
         val preferenceIsExpand = PreferenceManager
             .getDefaultSharedPreferences(context)
             .getString(PREF_ALBUM_BEHAVIOUR, PLAY) == EXPAND
 
         val metadata = MediaMetadata.Builder()
-            .setTitle(item.name)
-            .setAlbumArtist(item.albumArtist)
+            .setTitle(title)
+            .setAlbumArtist(albumArtist)
             .setIsBrowsable(preferenceIsExpand)
             .setIsPlayable(!preferenceIsExpand)
-            .setArtworkUri(artUri(item.id))
+            .setArtworkUri(artworkUri)
             .setMediaType(MediaMetadata.MEDIA_TYPE_ALBUM)
-            .setExtras(extras)
+            .setExtras(groupExtras(group))
             .build()
 
         return MediaItem.Builder()
-            .setMediaId(item.id.toString())
+            .setMediaId(id)
             .setMediaMetadata(metadata)
             .build()
     }
 
-    private fun forPlaylist(item: BaseItemDto, group: String? = null): MediaItem {
-        val extras = Bundle()
-        if (group != null) {
-            extras.putString(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_GROUP_TITLE, group)
-        }
-
+    fun playlist(
+        id: String,
+        title: String?,
+        artworkUri: Uri?,
+        group: String? = null
+    ): MediaItem {
         val metadata = MediaMetadata.Builder()
-            .setTitle(item.name)
+            .setTitle(title)
             .setIsBrowsable(false)
             .setIsPlayable(true)
-            .setArtworkUri(artUri(item.id))
+            .setArtworkUri(artworkUri)
             .setMediaType(MediaMetadata.MEDIA_TYPE_PLAYLIST)
-            .setExtras(extras)
+            .setExtras(groupExtras(group))
             .build()
 
         return MediaItem.Builder()
-            .setMediaId(item.id.toString())
+            .setMediaId(id)
             .setMediaMetadata(metadata)
             .build()
     }
 
-    private fun forTrack(
-        item: BaseItemDto,
+    fun track(
+        id: String,
+        title: String?,
+        albumArtist: String?,
+        artworkUri: Uri?,
+        streamUri: Uri,
+        isFavourite: Boolean,
+        durationMs: Long?,
+        albumTitle: String? = null,
         group: String? = null,
         parent: String? = null
     ): MediaItem {
-        // Use the album ID for album art, if present.
-        // This way, all tracks in an album have the same URI, which saves some downloads.
-        // It probably makes sense most of the time, unless someone uses different images for
-        // tracks within the same album, which seems weird.
-        val artUrl = artUri(item.albumId ?: item.id)
-
-        val preferenceBitrate = PreferenceManager
-            .getDefaultSharedPreferences(context)
-            .getString(PREF_BITRATE, DIRECT_STREAM)!!
-
-        val bitrate = if (preferenceBitrate == DIRECT_STREAM) null else preferenceBitrate.toInt()
-
-        // Nice-to-have: it would be nice to force transcoding when the codec is not supported
-        //  (eg ALAC).
-        //  This would require that we know the codec upfront. we currently don't have access to
-        //  it because our BaseItemDtos are mostly fetched via getItemChildren, which queries the
-        //  /Items endpoint, which does not include the codec (mediaSources/mediaStreams) in its
-        //  response.
-
-        // When a file is not in this list of containers, it will always be transcoded.
-        // This list are containers that I tested.
-        val allowedContainers = listOf("flac", "mp3", "m4a", "aac", "ogg")
-        val audioStream =
-            jellyfinApi.universalAudioApi.getUniversalAudioStreamUrl(
-                item.id,
-                container = allowedContainers,
-                audioBitRate = bitrate,
-                maxStreamingBitrate = bitrate,
-                transcodingContainer = "mp3",
-                audioCodec = "mp3",
-            )
-
-        val extras = Bundle()
-        if (group != null) {
-            extras.putString(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_GROUP_TITLE, group)
-        }
-
+        val extras = groupExtras(group)
         if (parent != null) {
             extras.putString(PARENT_KEY, parent)
         }
 
         val metadata = MediaMetadata.Builder()
-            .setTitle(item.name)
-            .setAlbumArtist(item.albumArtist)
+            .setTitle(title)
+            .setAlbumTitle(albumTitle)
+            .setAlbumArtist(albumArtist)
             .setIsBrowsable(false)
             .setIsPlayable(true)
-            .setArtworkUri(artUrl)
-            .setUserRating(HeartRating(item.userData?.isFavorite == true))
+            .setArtworkUri(artworkUri)
+            .setUserRating(HeartRating(isFavourite))
             .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
-            .setDurationMs(item.runTimeTicks?.div(10_000))
+            .setDurationMs(durationMs)
             .setExtras(extras)
             .build()
 
         return MediaItem.Builder()
-            .setMediaId(item.id.toString())
+            .setMediaId(id)
             .setMediaMetadata(metadata)
-            .setUri(audioStream)
+            .setUri(streamUri)
             .build()
-    }
-
-    private fun artUri(id: UUID): Uri {
-        val artUrl = ImageApi(jellyfinApi).getItemImageUrl(
-            id,
-            ImageType.PRIMARY,
-            quality = 90,
-            maxWidth = artSize,
-            maxHeight = artSize,
-        )
-        val localUrl = AlbumArtContentProvider.mapUri(artUrl.toUri())
-        return localUrl
-    }
-
-
-    fun create(
-        baseItemDto: BaseItemDto,
-        group: String? = null,
-        parent: String? = null
-    ): MediaItem {
-        return when (baseItemDto.type) {
-            BaseItemKind.MUSIC_ARTIST -> forArtist(baseItemDto, group)
-            BaseItemKind.MUSIC_ALBUM -> forAlbum(baseItemDto, group)
-            BaseItemKind.PLAYLIST -> forPlaylist(baseItemDto, group)
-            BaseItemKind.AUDIO -> forTrack(baseItemDto, group, parent)
-            else -> throw UnsupportedOperationException("Can't create mediaItem for ${baseItemDto.type}")
-        }
     }
 }

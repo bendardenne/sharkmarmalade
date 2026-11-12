@@ -2,6 +2,7 @@ package be.bendardenne.jellyfin.aaos
 
 object SharkMarmaladeConstants {
     const val LOG_MARKER = "SharkMarmalade"
+    const val USER_AGENT = "SharkMarmalade/${BuildConfig.VERSION_NAME}"
 
     const val PREF_BITRATE = "bitrate"
     // See arrays.xml

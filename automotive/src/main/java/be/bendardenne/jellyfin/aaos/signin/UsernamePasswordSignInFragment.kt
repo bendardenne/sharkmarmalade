@@ -15,7 +15,9 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import be.bendardenne.jellyfin.aaos.R
+import be.bendardenne.jellyfin.aaos.ServerType
 import be.bendardenne.jellyfin.aaos.signin.SignInActivityViewModel.Companion.JELLYFIN_SERVER_URL
+import be.bendardenne.jellyfin.aaos.signin.SignInActivityViewModel.Companion.SERVER_TYPE_KEY
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.launch
 
@@ -42,6 +44,12 @@ class UsernamePasswordSignInFragment : Fragment() {
 
         viewModel = ViewModelProvider(requireActivity())[SignInActivityViewModel::class.java]
         val server = arguments?.getString(JELLYFIN_SERVER_URL)!!
+        val serverTypeStr = arguments?.getString(SERVER_TYPE_KEY)
+        val serverType = try {
+            if (serverTypeStr != null) ServerType.valueOf(serverTypeStr) else ServerType.JELLYFIN
+        } catch (e: Exception) {
+            ServerType.JELLYFIN
+        }
 
         usernameInput = view.findViewById(R.id.username)
         passwordInput = view.findViewById(R.id.password)
@@ -49,18 +57,26 @@ class UsernamePasswordSignInFragment : Fragment() {
         quickConnectCode = view.findViewById(R.id.quickconnect_code)
         quickConnectProgressBar = view.findViewById(R.id.quickconnect_progressbar)
 
-        viewModel.startQuickConnect(server)
+        val quickConnectLayout = view.findViewById<View>(R.id.quickconnect_layout)
+        val divider = view.findViewById<View>(R.id.divider)
 
-        viewModel.quickConnectCode.observe(viewLifecycleOwner) { value ->
-            quickConnectProgressBar.visibility = View.GONE
-            quickConnectCode.visibility = View.VISIBLE
+        if (serverType == ServerType.SUBSONIC) {
+            quickConnectLayout?.visibility = View.GONE
+            divider?.visibility = View.GONE
+        } else {
+            viewModel.startQuickConnect(server)
 
-            if (value == -1) {
-                quickConnectCode.text = context?.getText(R.string.unavailable)
-            } else {
-                val code = value.toString()
-                val formattedCode = code.take(3) + " " + code.substring(3)
-                quickConnectCode.text = formattedCode
+            viewModel.quickConnectCode.observe(viewLifecycleOwner) { value ->
+                quickConnectProgressBar.visibility = View.GONE
+                quickConnectCode.visibility = View.VISIBLE
+
+                if (value == -1) {
+                    quickConnectCode.text = context?.getText(R.string.unavailable)
+                } else {
+                    val code = value.toString()
+                    val formattedCode = code.take(3) + " " + code.substring(3)
+                    quickConnectCode.text = formattedCode
+                }
             }
         }
 
@@ -72,7 +88,7 @@ class UsernamePasswordSignInFragment : Fragment() {
                 snackbar(R.string.username_textfield_error)
             } else {
                 viewLifecycleOwner.lifecycleScope.launch {
-                    val result = viewModel.login(server, username.toString(), password.toString())
+                    val result = viewModel.login(server, username.toString(), password.toString(), serverType)
 
                     if (!result) {
                         snackbar(R.string.login_unsuccessful)

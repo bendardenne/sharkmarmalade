@@ -1,7 +1,7 @@
 <resources>
     <string name="app_name">Shark Marmalade</string>
-    <string name="sign_in_to_your_jellyfin_server">Sign in to your Jellyfin server</string>
-    <string name="server_textfield_hint">https://myjellyfin.server.com:8096</string>
+    <string name="sign_in_to_your_jellyfin_server">Sign in to your media server</string>
+    <string name="server_textfield_hint">https://my.server.com:8096</string>
     <string name="server_button_label">Connect to server</string>
     <string name="server_textfield_error">Server URL cannot be empty</string>
     <string name="quickconnect">QuickConnect</string>
@@ -28,10 +28,13 @@
     <string name="album_behaviour">Album behaviour</string>
     <string name="upload_logs">Upload logs to Jellyfin server</string>
     <string name="log_uploaded">Logfile uploaded to server</string>
+    <string name="server_type_label">Server Type:</string>
+    <string name="server_type_jellyfin">Jellyfin</string>
+    <string name="server_type_subsonic">Subsonic</string>
     <string name="account">Account</string>
     <string name="server_url">Server URL</string>
     <string name="username">Username</string>
     <string name="logout">Logout</string>
-    <string name="logout_summary">Sign out of your Jellyfin account</string>
+    <string name="logout_summary">Sign out of your account</string>
     <string name="logged_out">Logged out successfully</string>
 </resources>
